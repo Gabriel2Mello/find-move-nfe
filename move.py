@@ -50,8 +50,6 @@ def main():
     lista_notas = set(numero_notas_path.read_text().split())
 
     for base_path in PATHS:
-        if not base_path or not base_path.exists(): continue
-
         for root, dirs, files in base_path.walk():
 
             dirs[:] = [d for d in dirs if not d.isdigit()]
@@ -78,7 +76,6 @@ def main():
                     move_path.mkdir(parents=True, exist_ok=True)
 
                     destino = move_path / file
-
                     try:
                         if not destino.exists():
                             shutil.move(str(source), str(destino))
