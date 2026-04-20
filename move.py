@@ -1,9 +1,10 @@
 from time import perf_counter
 from pathlib import Path
 from datetime import datetime
-from os import environ
+from os import environ, getcwd
+import shutil
+import re
 
-start_time = perf_counter()
 
 MONTHS = [
     None,
@@ -12,62 +13,85 @@ MONTHS = [
     'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'
 ]
 
-def pdf_number(file):
-    digits = ''.join(filter(str.isdigit, file))
+RE_DIGITS = re.compile(r'\d+')
+
+def pdf_number(filename):
+    digits = ''.join(RE_DIGITS.findall(filename))
     if len(digits) >= 5:
         return digits[-5:-1]
+    return None
 
-def xml_number(file):
-    digits = ''.join(filter(str.isdigit, file))
+
+def xml_number(filename):
+    digits = ''.join(RE_DIGITS.findall(filename))
     if len(digits) >= 14:
         return digits[-14:-10]
+    return None
 
-def readable_date(stat):
-    mtime = stat.st_mtime
-    return datetime.fromtimestamp(mtime)
 
-PATHS = [
-    Path(environ['CAMINHO_DANFE_MATRIZ']),
-    Path(environ['CAMINHO_DANFE_FILIAL']),
-    Path(environ['CAMINHO_XML_MATRIZ']),
-    Path(environ['CAMINHO_XML_FILIAL'])
-]
+def main():
+    start_time = perf_counter()
+    print('Aguarde...movendo notas')
 
-notas_salvas_path = Path('.') / 'notas'
+    PATHS = [
+        Path(environ['CAMINHO_DANFE_MATRIZ']),
+        Path(environ['CAMINHO_DANFE_FILIAL']),
+        Path(environ['CAMINHO_XML_MATRIZ']),
+        Path(environ['CAMINHO_XML_FILIAL'])
+    ]
 
-numero_notas_path = Path('notas.txt')
-lista_notas = numero_notas_path.read_text().split()
+    base_dir = Path(getcwd())
+    numero_notas_path = base_dir / 'notas.txt'
 
-for base_path in PATHS:
-    for root, dirs, files in base_path.walk(top_down=True):
-        if root == notas_salvas_path:
-            continue
+    if not numero_notas_path.exists():
+        print('Arquivo notas.txt não encontrado.')
+        return
 
-        for file in files:
-            numero_nota = None
+    lista_notas = set(numero_notas_path.read_text().split())
 
-            if file.lower().endswith('.pdf'):
-                numero_nota = pdf_number(file)
+    for base_path in PATHS:
+        if not base_path or not base_path.exists(): continue
 
-            elif file.lower().endswith('.xml'):
-                numero_nota = xml_number(file)
+        for root, dirs, files in base_path.walk():
 
-            if numero_nota in lista_notas:
-                source = root / file
+            dirs[:] = [d for d in dirs if not d.isdigit()]
 
-                date = readable_date(source.stat())
-                move_base_path = root / f"{date.year}"
+            for file in files:
+                filename = file.lower()
 
-                if not move_base_path.exists():
-                    continue
+                if not filename.startswith('nfe'): continue
 
-                move_path = move_base_path / MONTHS[date.month]
+                numero_nota = None
+                if filename.endswith('.pdf'):
+                    numero_nota = pdf_number(filename)
 
-                if not move_path.exists():
-                    continue
+                elif filename.endswith('.xml'):
+                    numero_nota = xml_number(filename)
 
-                source.move_into(move_path)
+                if numero_nota and numero_nota in lista_notas:
+                    source = root / file
 
-elapsed_time = perf_counter()
-print(f"Done in: {elapsed_time - start_time:0.2f} seconds")
+                    stat = source.stat()
+                    date = datetime.fromtimestamp(stat.st_mtime)
+
+                    move_path = root / str(date.year) / MONTHS[date.month]
+                    move_path.mkdir(parents=True, exist_ok=True)
+
+                    destino = move_path / file
+
+                    try:
+                        if not destino.exists():
+                            shutil.move(str(source), str(destino))
+
+                    except Exception as e:
+                        print(f'Erro ao movimentar {file}: {e}')
+
+
+    elapsed_time = perf_counter()
+    print(f'\nTerminado em: {elapsed_time - start_time:0.2f} segundos')
+    input('Pressione Enter para fechar...')
+
+
+if __name__ == "__main__":
+    main()
 
