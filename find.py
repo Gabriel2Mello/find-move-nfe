@@ -5,13 +5,6 @@ import shutil
 import re
 
 
-PATHS = [
-  Path(environ.get('CAMINHO_DANFE_MATRIZ', '')),
-  Path(environ.get('CAMINHO_DANFE_FILIAL', '')),
-  Path(environ.get('CAMINHO_XML_MATRIZ', '')),
-  Path(environ.get('CAMINHO_XML_FILIAL', ''))
-]
-
 RE_DIGITS = re.compile(r'\d+')
 
 def pdf_number(filename):
@@ -29,8 +22,15 @@ def xml_number(filename):
 
 
 def main():
-    print('Aguarde...buscando notas')
     start_time = perf_counter()
+    print('Aguarde...buscando notas')
+
+    PATHS = [
+      Path(environ['CAMINHO_DANFE_MATRIZ']),
+      Path(environ['CAMINHO_DANFE_FILIAL']),
+      Path(environ['CAMINHO_XML_MATRIZ']),
+      Path(environ['CAMINHO_XML_FILIAL'])
+    ]
 
     base_dir = Path(getcwd())
     notas_salvas_path = base_dir / 'notas'
@@ -44,8 +44,6 @@ def main():
     lista_notas = set(numero_notas_path.read_text().split())
 
     for base_path in PATHS:
-        if not base_path or not base_path.exists(): continue
-
         for root, _, files in base_path.walk():
             if notas_salvas_path in root.parents: continue
             if root == notas_salvas_path: continue
