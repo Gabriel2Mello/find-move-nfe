@@ -1,3 +1,4 @@
+from datetime import datetime
 from time import perf_counter
 from pathlib import Path
 from os import environ, getcwd
@@ -43,10 +44,19 @@ def main():
 
     lista_notas = set(numero_notas_path.read_text().split())
 
+    ano_atual = str(datetime.now().year)
+
     for base_path in PATHS:
-        for root, _, files in base_path.walk():
+        for root, dirs, files in base_path.walk():
             if notas_salvas_path in root.parents: continue
             if root == notas_salvas_path: continue
+
+            dirs[:] = [d for d in dirs if d == ano_atual]
+
+            is_raiz = root == base_path
+            is_ano_atual = root.name == ano_atual
+
+            if not (is_raiz or is_ano_atual): continue
 
             for file in files:
                 filename = file.lower()
@@ -61,6 +71,8 @@ def main():
                     numero_nota = xml_number(filename)
 
                 if numero_nota and numero_nota in lista_notas:
+                    print(f'Encontrado: {numero_nota}')
+
                     source = root / file
                     destino = notas_salvas_path / file
 
