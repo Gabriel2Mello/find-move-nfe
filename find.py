@@ -24,7 +24,7 @@ def xml_number(filename):
 
 def main():
     start_time = perf_counter()
-    print('Aguarde...buscando notas')
+    print('Aguarde... buscando notas')
 
     PATHS = [
       Path(environ['CAMINHO_DANFE_MATRIZ']),
@@ -48,20 +48,26 @@ def main():
 
     for base_path in PATHS:
         for root, dirs, files in base_path.walk():
-            if notas_salvas_path in root.parents: continue
-            if root == notas_salvas_path: continue
-
-            dirs[:] = [d for d in dirs if d == ano_atual]
+            if notas_salvas_path in root.parents or root == notas_salvas_path:
+                dirs[:] = []
+                continue
 
             is_raiz = root == base_path
             is_ano_atual = root.name == ano_atual
 
-            if not (is_raiz or is_ano_atual): continue
+            if is_raiz:
+                dirs[:] = [d for d in dirs if d == ano_atual]
+            elif not is_ano_atual:
+                pass
+
+            if not (is_raiz or is_ano_atual or ano_atual in root.parts):
+                continue
 
             for file in files:
                 filename = file.lower()
 
-                if not filename.startswith('nfe'): continue
+                if not filename.startswith('nfe'):
+                    continue
 
                 numero_nota = None
                 if filename.endswith('.pdf'):
