@@ -1,1 +1,6 @@
 notas.txt
+.venv/
+__pycache__/
+notas/
+.local/
+*.lnk

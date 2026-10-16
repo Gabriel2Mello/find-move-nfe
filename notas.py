@@ -1,0 +1,259 @@
+"""Interface local única de busca e movimentação, integrada ao Hub Nunes."""
+from collections import deque
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import json
+from pathlib import Path
+import secrets
+from threading import Event, RLock, Thread
+import time
+
+from integracao_hub import atender_integracao, executar_interface
+from operacoes import caminhos_ambiente, executar, preparar
+
+RAIZ = Path(__file__).resolve().parent
+
+
+class Servidor(ThreadingHTTPServer):
+    daemon_threads = True
+    TOLERANCIA = 5
+    LIMITE_INICIAL = 120
+
+    def __init__(self):
+        self.token = secrets.token_urlsafe(32)
+        self.mutex = RLock()
+        self.paginas = {}
+        self.teve_pagina = False
+        self.sem_paginas_desde = time.monotonic()
+        self.encerrando = False
+        self.ocupado = False
+        self.cancelar = Event()
+        self.worker = None
+        self.logs = deque(maxlen=300)
+        self.resultado = None
+        self.acao = ''
+        super().__init__(('127.0.0.1', 0), Handler)
+        self.origem = f'http://127.0.0.1:{self.server_port}'
+
+    def situacao(self):
+        with self.mutex:
+            return dict(ocupado=self.ocupado, encerrando=self.encerrando, paginas=len(self.paginas),
+                        acao=self.acao, logs=list(self.logs), resultado=self.resultado)
+
+    def relatar(self, texto):
+        with self.mutex:
+            self.logs.append(texto)
+
+    def iniciar(self, dados):
+        with self.mutex:
+            if self.ocupado or self.encerrando:
+                raise ValueError('Aguarde o término da operação atual.')
+            acao = dados.get('acao')
+            if acao not in ('buscar', 'mover'):
+                raise ValueError('Ação inválida.')
+            numeros, pastas, destino = preparar(dados.get('notas'), dados.get('caminhos'), dados.get('destino'))
+            self.ocupado = True
+            self.cancelar.clear()
+            self.logs.clear()
+            self.resultado = None
+            self.acao = acao
+            self.worker = Thread(target=self.trabalhar, args=(acao, numeros, pastas, destino))
+            self.worker.start()
+
+    def trabalhar(self, acao, numeros, pastas, destino):
+        try:
+            resultado = executar(acao, numeros, pastas, destino, cancelar=self.cancelar, relatar=self.relatar)
+        except Exception as erro:
+            self.relatar(f'Não foi possível concluir: {erro}')
+            resultado = {'erro': str(erro)}
+        with self.mutex:
+            self.resultado = resultado
+            self.ocupado = False
+            if self.encerrando:
+                Thread(target=self.shutdown, daemon=True).start()
+
+    def abrir_pagina(self, pagina):
+        with self.mutex:
+            if self.encerrando:
+                raise ValueError('A ferramenta está encerrando.')
+            anterior = self.paginas.get(pagina)
+            if anterior is not None:
+                anterior.set()
+            evento = Event()
+            self.paginas[pagina] = evento
+            self.teve_pagina = True
+            return evento
+
+    def fechar_pagina(self, pagina, evento=None):
+        with self.mutex:
+            atual = self.paginas.get(pagina)
+            if atual is not None and (evento is None or atual is evento):
+                self.paginas.pop(pagina)
+                atual.set()
+                if not self.paginas:
+                    self.sem_paginas_desde = time.monotonic()
+
+    def encerrar(self):
+        with self.mutex:
+            if self.encerrando:
+                return
+            self.encerrando = True
+            self.cancelar.set()
+            for evento in self.paginas.values():
+                evento.set()
+            if not self.ocupado:
+                Thread(target=self.shutdown, daemon=True).start()
+
+    def service_actions(self):
+        with self.mutex:
+            limite = self.TOLERANCIA if self.teve_pagina else self.LIMITE_INICIAL
+            if not self.paginas and time.monotonic() - self.sem_paginas_desde >= limite:
+                self.encerrar()
+
+
+class Handler(BaseHTTPRequestHandler):
+    def setup(self):
+        super().setup()
+        self.connection.settimeout(5)
+
+    def log_message(self, *args):
+        pass
+
+    def responder(self, codigo, corpo, tipo='application/json; charset=utf-8'):
+        self.send_response(codigo)
+        self.send_header('Content-Type', tipo)
+        self.send_header('Content-Length', str(len(corpo)))
+        self.send_header('Cache-Control', 'no-store')
+        self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header('Referrer-Policy', 'no-referrer')
+        self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
+        self.end_headers()
+        self.wfile.write(corpo)
+
+    def json(self, codigo, dados):
+        self.responder(codigo, json.dumps(dados, ensure_ascii=False).encode())
+
+    def host_valido(self):
+        return self.headers.get_all('Host') == [f'127.0.0.1:{self.server.server_port}']
+
+    def autorizado(self):
+        return self.host_valido() and self.headers.get_all('X-Notas-Token') == [self.server.token]
+
+    def acompanhar(self):
+        pagina = self.headers.get('X-Notas-Pagina', '')
+        if not pagina or len(pagina) > 100 or not pagina.isascii():
+            self.json(400, {'erro': 'Página inválida.'})
+            return
+        try:
+            evento = self.server.abrir_pagina(pagina)
+        except ValueError as erro:
+            self.json(409, {'erro': str(erro)})
+            return
+        try:
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/event-stream')
+            self.send_header('Cache-Control', 'no-store')
+            self.end_headers()
+            anterior = ''
+            while not evento.is_set() and not self.server.encerrando:
+                atual = json.dumps(self.server.situacao(), ensure_ascii=False)
+                # Ocioso: mantém a conexão para detectar a última aba, sem reenviar estado.
+                mensagem = 'data: ' + atual + '\n\n' if atual != anterior else ': presenca\n\n'
+                self.wfile.write(mensagem.encode())
+                self.wfile.flush()
+                anterior = atual
+                if evento.wait(1):
+                    break
+        except (OSError, ValueError):
+            pass
+        finally:
+            self.server.fechar_pagina(pagina, evento)
+
+    def do_GET(self):
+        if atender_integracao(self):
+            return
+        if not self.host_valido():
+            self.json(403, {'erro': 'Host não permitido.'})
+        elif self.path.startswith('/api/'):
+            if not self.autorizado():
+                self.json(403, {'erro': 'Acesso não autorizado.'})
+            elif self.path == '/api/estado':
+                self.json(200, self.server.situacao())
+            elif self.path == '/api/configuracao':
+                try:
+                    notas = (RAIZ / 'notas.txt').read_text(encoding='utf-8-sig')
+                except OSError:
+                    notas = ''
+                self.json(200, dict(notas=notas, caminhos=caminhos_ambiente(), destino=str(RAIZ / 'notas')))
+            elif self.path == '/api/presenca':
+                self.acompanhar()
+            else:
+                self.json(404, {'erro': 'Recurso não encontrado.'})
+        elif self.path == '/':
+            html = (RAIZ / 'web/index.html').read_text(encoding='utf-8').replace('{{TOKEN}}', self.server.token)
+            self.responder(200, html.encode(), 'text/html; charset=utf-8')
+        else:
+            recursos = {'/notas.css': ('web/notas.css', 'text/css; charset=utf-8'),
+                        '/notas.js': ('web/notas.js', 'text/javascript; charset=utf-8'),
+                        '/icone.svg': ('icons/icone.svg', 'image/svg+xml'),
+                        '/favicon.ico': ('icons/icone.ico', 'image/x-icon')}
+            if self.path in recursos:
+                arquivo, tipo = recursos[self.path]
+                self.responder(200, (RAIZ / arquivo).read_bytes(), tipo)
+            else:
+                self.json(404, {'erro': 'Recurso não encontrado.'})
+
+    def do_POST(self):
+        if atender_integracao(self):
+            return
+        try:
+            tamanho = int(self.headers.get('Content-Length', '0'))
+            if not 0 < tamanho <= 65536:
+                raise ValueError('Requisição inválida.')
+            corpo = self.rfile.read(tamanho)
+            # Consumir o corpo limitado antes de responder evita um reset TCP no Windows.
+            if (not self.autorizado() or self.headers.get_all('Origin') != [self.server.origem]
+                    or self.headers.get('Content-Type') != 'application/json'):
+                self.json(403, {'erro': 'Requisição não permitida. Reabra a ferramenta.'})
+                return
+            if tamanho > 32768:
+                raise ValueError('Requisição inválida.')
+            dados = json.loads(corpo)
+            if not isinstance(dados, dict):
+                raise ValueError('Requisição inválida.')
+            if self.path == '/api/iniciar':
+                self.server.iniciar(dados)
+            elif self.path == '/api/cancelar':
+                self.server.cancelar.set()
+            elif self.path == '/api/fechar-pagina':
+                pagina = dados.get('pagina')
+                if not isinstance(pagina, str):
+                    raise ValueError('Página inválida.')
+                self.server.fechar_pagina(pagina)
+            elif self.path == '/api/encerrar':
+                self.json(200, {'solicitado': True})
+                self.server.encerrar()
+                return
+            else:
+                self.json(404, {'erro': 'Ação não encontrada.'})
+                return
+            self.json(200, {'ok': True})
+        except (OSError, ValueError, TypeError) as erro:
+            self.json(400, {'erro': str(erro)})
+
+
+def main(integracao):
+    servidor = Servidor()
+    try:
+        integracao.publicar(servidor, servidor.encerrar, servidor.situacao)
+        servidor.serve_forever(poll_interval=.2)
+    except KeyboardInterrupt:
+        servidor.cancelar.set()
+    finally:
+        servidor.server_close()
+        if servidor.worker is not None:
+            servidor.worker.join()
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(executar_interface('find-move-nfe', 'Busca e Move Notas', False, main))

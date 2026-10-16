@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="notas-token" content="{{TOKEN}}">
+  <title>Busca e Move Notas · Nunes</title>
+  <link rel="icon" href="/icone.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/notas.css"><script src="/notas.js" defer></script>
+</head>
+<body>
+  <header><a class="marca" href="/"><img src="/icone.svg" width="44" height="44" alt=""><span>Busca e Move Notas<small>Nunes Enxovais · Fiscal</small></span></a><div class="acoes"><button id="tema" type="button">Tema escuro</button><button id="encerrar" type="button">Encerrar</button></div></header>
+  <main>
+    <p class="sobretitulo">DOCUMENTOS FISCAIS</p>
+    <h1>Encontre e organize suas notas.</h1>
+    <p class="introducao">Busque DANFEs e XMLs ou mova as notas para as pastas de ano e mês.</p>
+    <div class="painel">
+      <section class="entrada" aria-labelledby="titulo-notas">
+        <h2 id="titulo-notas">Quais notas?</h2>
+        <label for="notas">Números das notas</label>
+        <textarea id="notas" rows="9" placeholder="1234&#10;5678" aria-describedby="ajuda-notas" spellcheck="false"></textarea>
+        <p class="ajuda" id="ajuda-notas">Até quatro dígitos por nota. Separe por linha, espaço ou vírgula. O arquivo notas.txt é carregado ao abrir.</p>
+        <label for="destino">Salvar cópias em</label><input id="destino" type="text" spellcheck="false">
+        <details><summary>Pastas de origem</summary><p class="ajuda">Carregadas das configurações deste computador. Ajustes valem nesta aba.</p>
+          <label for="caminho-0">DANFE · Matriz</label><input id="caminho-0" type="text" spellcheck="false">
+          <label for="caminho-1">DANFE · Filial</label><input id="caminho-1" type="text" spellcheck="false">
+          <label for="caminho-2">XML · Matriz</label><input id="caminho-2" type="text" spellcheck="false">
+          <label for="caminho-3">XML · Filial</label><input id="caminho-3" type="text" spellcheck="false">
+        </details>
+      </section>
+      <section class="operacoes" aria-labelledby="titulo-acoes">
+        <h2 id="titulo-acoes">O que deseja fazer?</h2>
+        <article class="opcao"><span class="etiqueta">BUSCA-NOTAS</span><h3>Buscar e copiar</h3><p>Procura na raiz e nas pastas do ano atual. Salva os arquivos encontrados na pasta de cópias.</p><button id="buscar" class="principal" type="button" disabled>Buscar notas <span aria-hidden="true">↗</span></button></article>
+        <article class="opcao"><span class="etiqueta">MOVE-NOTAS</span><h3>Mover e organizar</h3><p>Organiza as notas ainda fora das pastas de ano. Usa a data de modificação de cada arquivo para criar ano e mês na própria origem.</p><button id="mover" type="button" disabled>Mover notas <span aria-hidden="true">↗</span></button></article>
+        <p class="ajuda">Arquivos já existentes no destino são preservados. As duas ações usam a mesma lista de notas.</p>
+      </section>
+    </div>
+    <section class="acompanhamento" aria-labelledby="titulo-andamento"><div class="linha"><h2 id="titulo-andamento">Acompanhamento</h2><button id="cancelar" type="button" disabled>Parar operação</button></div><p id="status" role="status" aria-live="polite">Carregando configurações…</p><p id="resumo"></p><pre id="logs" aria-label="Registro da operação"></pre></section>
+  </main>
+  <footer><span>Nunes Enxovais · Automações internas</span><span>Desenvolvido por <a class="assinatura" href="https://github.com/Gabriel2Mello" target="_blank" rel="noopener noreferrer" aria-label="g2mello no GitHub">g2me<span class="traco">l</span><span class="traco">l</span>o</a></span></footer>
+</body>
+</html>
