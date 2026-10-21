@@ -63,6 +63,54 @@ comparar origem/destino e confirmar que falhas não removem a origem. Reabrir
 a aplicação Python para carregar o código. Executáveis antigos em `dist`
 precisam ser reconstruídos antes da distribuição.
 
+
+## Contador de arquivos — E11, 21/10/2026
+
+No Hub, **Resultados → Arquivos buscados e movidos** reúne as duas ações no
+mesmo total. A unidade aprovada pelo responsável é **um arquivo concluído por
+ação**: buscar PDF e XML soma 2; depois mover os dois soma mais 2, totalizando 4.
+Só encontrar um nome não conta: na busca, a cópia precisa terminar com a
+conferência E6; no movimento, a transferência precisa terminar, incluindo a
+remoção da origem quando usar cópia entre volumes. Já existentes, conflitos,
+falhas e itens não processados por cancelamento ficam fora do contador.
+
+Interface web e console compartilham o registro. Cada entrega usa a ação e os
+caminhos absolutos normalizados de origem/destino como identidade estável.
+Reiniciar ou repetir a mesma entrega não acrescenta outra contagem, mesmo
+depois de remover a cópia de destino. Outro destino ou outra origem representa
+outra entrega. O conteúdo não integra essa identidade: substituir um arquivo
+por outro no mesmo caminho e repetir a mesma ação também não cria novo evento.
+Não foi acrescentada leitura da chave fiscal nem alterada a seleção legada.
+
+O histórico/CSV conserva referência de quatro dígitos e tipo da ação/arquivo
+(`busca_pdf`, `busca_xml`, `move_pdf`, `move_xml`), sem guardar caminhos ou nomes
+fiscais completos. Esses caminhos entram apenas na identidade em hash. Não se
+infere empresa a partir da posição/nome das pastas; esses eventos ficam na visão
+de todas as empresas. Não há classificação por setor.
+
+O módulo `metricas_nunes.py` tem fonte no Hub, assim como a integração. O
+escritor mantém SQLite/fila permanente local, instante original e deduplicação
+do [contrato de métricas](../nunes-hub/METRICAS.md). Se banco e fila falharem,
+a ferramenta avisa que o relatório pode ficar incompleto e preserva o resultado
+da transferência, sem repeti-la. Queda entre transferência e registro pode
+deixar uma lacuna; uma execução que encontra o destino existente não reconstrói
+uma conclusão antiga sem evidência. Não há diário de recuperação novo.
+
+**Atualização:** encerrar normalmente e reabrir Hub e as seis ferramentas
+que compartilham métricas (Havan, Financeiro, Cofre, Impressão, Busca e Move e Fluxo)
+para carregar o contrato com o novo evento. Leitores antigos rejeitam esse
+evento como desconhecido. Não apagar banco/fila para contornar isso.
+Executáveis antigos precisam ser reconstruídos. O histórico começa com as
+próximas operações desta versão, sem importar documentos anteriores.
+
+Validação: 40 testes Python da ferramenta (12 novos), com transferência real
+de arquivos sintéticos, console/worker, falhas, colisão, cancelamento,
+persistência/deduplicação e fila. No conjunto afetado passaram **776 Python e
+52 JavaScript**, tipagem estrita do Financeiro sem erros/avisos, contratos
+iguais por SHA-256 e verificação do pacote E10 histórico. Prévia Edge conferida
+em claro/escuro a 360/1200 px. Nenhuma nota real, pasta de rede ou aplicação
+externa foi operada. Evidências locais: `nunes-hub/.local/e11-find-move-2026-10-21/`.
+
 ## Instalação e validação
 
 Python 3.10 ou superior, somente biblioteca padrão. Crie `.venv` com `python -m venv --without-pip .venv`. O CMD e o hub usam `.venv/Scripts/pythonw.exe`, com processo próprio e sem console. Para abrir diretamente pelo Python: `.venv/Scripts/python.exe notas.py`.

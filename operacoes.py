@@ -4,10 +4,13 @@ from os import environ, walk
 from pathlib import Path
 import errno
 import hashlib
+import json
 import os
 import re
 import shutil
 import tempfile
+
+from metricas_nunes import registrar_evento
 
 VARIAVEIS = ('CAMINHO_DANFE_MATRIZ', 'CAMINHO_DANFE_FILIAL',
              'CAMINHO_XML_MATRIZ', 'CAMINHO_XML_FILIAL')
@@ -125,6 +128,16 @@ def _mover_sem_substituir(origem: Path, alvo: Path) -> None:
         _copiar_verificado(origem, alvo, remover_origem=True)
 
 
+def _registrar_conclusao(acao, origem, alvo, numero, relatar):
+    # Só a identidade em hash contém os caminhos/nomes fiscais completos.
+    identidade = json.dumps([acao, os.path.normcase(os.path.abspath(origem)),
+                            os.path.normcase(os.path.abspath(alvo))], ensure_ascii=False)
+    tipo = ('busca_' if acao == 'buscar' else 'move_') + alvo.suffix.lower().lstrip('.')
+    if not registrar_evento('arquivo_transferido', identidade, numero, tipo=tipo):
+        relatar('Arquivo concluído, mas a métrica não pôde ser preservada. '
+                'O relatório pode ficar incompleto; não repita a operação por isso.')
+
+
 def executar(acao, numeros, pastas, destino, *, cancelar=None, relatar=print):
     """Conclui o arquivo atual antes de atender a uma solicitação de parada."""
     if acao not in ('buscar', 'mover'):
@@ -184,6 +197,7 @@ def executar(acao, numeros, pastas, destino, *, cancelar=None, relatar=print):
                     else:
                         _mover_sem_substituir(source, alvo)
                     resumo['concluidos'] += 1
+                    _registrar_conclusao(acao, source, alvo, numero, relatar)
                     relatar(f'{"Copiado" if acao == "buscar" else "Movido"}: {arquivo}')
                 except ConflitoDestino:
                     resumo['ignorados'] += 1
