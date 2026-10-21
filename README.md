@@ -6,11 +6,22 @@ Informe as notas na interface e escolha uma ação. `notas.txt`, quando existir,
 
 As origens vêm de `CAMINHO_DANFE_MATRIZ`, `CAMINHO_DANFE_FILIAL`, `CAMINHO_XML_MATRIZ` e `CAMINHO_XML_FILIAL`. Podem ser ajustadas nesta aba em **Pastas de origem**. A busca percorre a raiz e as subpastas do ano atual e copia para `notas/` por padrão. A movimentação não entra em pastas com nomes numéricos; usa a **data de modificação do arquivo**, não a data de emissão, para organizar em `ANO/MÊS` na origem. Nenhuma ação é executada ao abrir a interface.
 
+**Salvar cópias em** fica salvo para as próximas aberturas. A gravação acontece
+ao sair do campo, iniciar uma ação, encerrar pelo botão ou fechar a aba, sem
+precisar executar uma busca. A ajuda abaixo do campo confirma a gravação ou
+informa a falha. A preferência fica em `.local/preferencias.json` nesta instalação;
+inclua esse arquivo no backup para conservar a escolha. Sem preferência salva,
+continua valendo `notas/`. Notas e ajustes das origens mantêm o comportamento acima.
+
 Arquivos existentes no destino são preservados nas duas ações. Na busca, isso substitui a sobrescrita feita pelo script antigo. O acompanhamento informa cópias/movimentações, arquivos já existentes, erros e notas não encontradas. Arquivos com o mesmo nome em origens diferentes permanecem na origem quando já houver um destino com esse nome; confira o registro. Erros de acesso são mostrados, sem tratar uma pasta inacessível como busca concluída sem problemas.
 
 **Parar operação**, **Encerrar**, fechar a última aba ou solicitar encerramento pelo monitor do hub concluem o arquivo em andamento antes de parar. Outra aba conectada mantém o servidor aberto. Há tolerância de cinco segundos para reconexão e limite inicial de dois minutos sem abas. Apenas uma operação executa por vez. A aplicação não utiliza o Sisplan e pode funcionar junto das ferramentas que o reservam.
 
 Enquanto estiver ociosa, a interface preserva status, resultado e campos. A conexão de presença continua aberta para detectar a saída das abas, mas só transmite estado quando houver mudança; sinais de presença não redesenham a interface.
+
+As atualizações de acompanhamento têm uma versão crescente. Uma consulta antiga
+que chegue depois da conclusão não recoloca a tela em “Movendo e organizando
+notas…” nem apaga o resumo final. Novas execuções continuam atualizando o andamento.
 
 O contrato `integracao_hub.py` é copiado do nunes-hub, que mantém a fonte. Ele fornece identidade, saúde, parada e instância única, inclusive nos iniciadores console `find.py` e `move.py`. As entradas console continuam lendo `notas.txt` da pasta de trabalho e as mesmas variáveis de ambiente. Executáveis antigos em `dist` precisam ser reconstruídos para incorporar as mudanças.
 

@@ -2,8 +2,10 @@
 from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 from pathlib import Path
 import secrets
+import tempfile
 from threading import Event, RLock, Thread
 import time
 
@@ -31,17 +33,72 @@ class Servidor(ThreadingHTTPServer):
         self.logs = deque(maxlen=300)
         self.resultado = None
         self.acao = ''
+        self.versao = 0
+        self.arquivo_preferencias = RAIZ / '.local' / 'preferencias.json'
+        self.revisoes_preferencias = {}
         super().__init__(('127.0.0.1', 0), Handler)
         self.origem = f'http://127.0.0.1:{self.server_port}'
 
     def situacao(self):
         with self.mutex:
             return dict(ocupado=self.ocupado, encerrando=self.encerrando, paginas=len(self.paginas),
-                        acao=self.acao, logs=list(self.logs), resultado=self.resultado)
+                        versao=self.versao, acao=self.acao, logs=list(self.logs), resultado=self.resultado)
+
+    def configuracao(self):
+        with self.mutex:
+            destino = str(RAIZ / 'notas')
+            try:
+                dados = json.loads(self.arquivo_preferencias.read_text(encoding='utf-8'))
+            except FileNotFoundError:
+                pass
+            else:
+                if not isinstance(dados, dict):
+                    raise ValueError('Preferências inválidas. Confira .local/preferencias.json.')
+                destino = self.validar_destino(dados.get('destino'))
+            try:
+                notas = (RAIZ / 'notas.txt').read_text(encoding='utf-8-sig')
+            except OSError:
+                notas = ''
+            return dict(notas=notas, caminhos=caminhos_ambiente(), destino=destino)
+
+    @staticmethod
+    def validar_destino(destino):
+        if (not isinstance(destino, str) or not destino.strip() or len(destino) > 4096
+                or any(c in destino for c in ('\x00', '\r', '\n'))):
+            raise ValueError('Informe uma pasta válida para salvar as cópias.')
+        return destino.strip()
+
+    def salvar_configuracao(self, dados):
+        destino = self.validar_destino(dados.get('destino'))
+        pagina, revisao = dados.get('pagina', ''), dados.get('revisao', 0)
+        if (not isinstance(pagina, str) or len(pagina) > 100 or not pagina.isascii()
+                or type(revisao) is not int or revisao < 0):
+            raise ValueError('Revisão de preferências inválida.')
+        with self.mutex:
+            # Um envio antigo pode chegar depois do keepalive ao fechar a aba.
+            if pagina and revisao <= self.revisoes_preferencias.get(pagina, -1):
+                return
+            self.arquivo_preferencias.parent.mkdir(parents=True, exist_ok=True)
+            temporario = None
+            try:
+                with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8',
+                        dir=self.arquivo_preferencias.parent, prefix='preferencias-', suffix='.tmp',
+                        delete=False) as stream:
+                    temporario = Path(stream.name)
+                    json.dump({'destino': destino}, stream, ensure_ascii=False)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                temporario.replace(self.arquivo_preferencias)
+            finally:
+                if temporario is not None:
+                    temporario.unlink(missing_ok=True)
+            if pagina:
+                self.revisoes_preferencias[pagina] = revisao
 
     def relatar(self, texto):
         with self.mutex:
             self.logs.append(texto)
+            self.versao += 1
 
     def iniciar(self, dados):
         with self.mutex:
@@ -56,6 +113,7 @@ class Servidor(ThreadingHTTPServer):
             self.logs.clear()
             self.resultado = None
             self.acao = acao
+            self.versao += 1
             self.worker = Thread(target=self.trabalhar, args=(acao, numeros, pastas, destino))
             self.worker.start()
 
@@ -68,6 +126,7 @@ class Servidor(ThreadingHTTPServer):
         with self.mutex:
             self.resultado = resultado
             self.ocupado = False
+            self.versao += 1
             if self.encerrando:
                 Thread(target=self.shutdown, daemon=True).start()
 
@@ -97,6 +156,7 @@ class Servidor(ThreadingHTTPServer):
             if self.encerrando:
                 return
             self.encerrando = True
+            self.versao += 1
             self.cancelar.set()
             for evento in self.paginas.values():
                 evento.set()
@@ -180,10 +240,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.json(200, self.server.situacao())
             elif self.path == '/api/configuracao':
                 try:
-                    notas = (RAIZ / 'notas.txt').read_text(encoding='utf-8-sig')
-                except OSError:
-                    notas = ''
-                self.json(200, dict(notas=notas, caminhos=caminhos_ambiente(), destino=str(RAIZ / 'notas')))
+                    self.json(200, self.server.configuracao())
+                except (OSError, ValueError) as erro:
+                    self.json(500, {'erro': f'Não foi possível carregar as preferências: {erro}'})
             elif self.path == '/api/presenca':
                 self.acompanhar()
             else:
@@ -222,6 +281,8 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError('Requisição inválida.')
             if self.path == '/api/iniciar':
                 self.server.iniciar(dados)
+            elif self.path == '/api/configuracao':
+                self.server.salvar_configuracao(dados)
             elif self.path == '/api/cancelar':
                 self.server.cancelar.set()
             elif self.path == '/api/fechar-pagina':

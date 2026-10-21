@@ -19,7 +19,8 @@
         <label for="notas">Números das notas</label>
         <textarea id="notas" rows="9" placeholder="1234&#10;5678" aria-describedby="ajuda-notas" spellcheck="false"></textarea>
         <p class="ajuda" id="ajuda-notas">Até quatro dígitos por nota. Separe por linha, espaço ou vírgula. O arquivo notas.txt é carregado ao abrir.</p>
-        <label for="destino">Salvar cópias em</label><input id="destino" type="text" spellcheck="false">
+        <label for="destino">Salvar cópias em</label><input id="destino" type="text" spellcheck="false" aria-describedby="ajuda-destino">
+        <p class="ajuda" id="ajuda-destino" role="status">A pasta é salva ao sair do campo ou fechar esta aba.</p>
         <details><summary>Pastas de origem</summary><p class="ajuda">Carregadas das configurações deste computador. Ajustes valem nesta aba.</p>
           <label for="caminho-0">DANFE · Matriz</label><input id="caminho-0" type="text" spellcheck="false">
           <label for="caminho-1">DANFE · Filial</label><input id="caminho-1" type="text" spellcheck="false">
