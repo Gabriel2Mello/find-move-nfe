@@ -2,6 +2,9 @@
 from datetime import datetime
 from os import environ, walk
 from pathlib import Path
+import errno
+import hashlib
+import os
 import re
 import shutil
 import tempfile
@@ -48,6 +51,78 @@ def preparar(notas, caminhos, destino):
     if saida.exists() and not saida.is_dir():
         raise ValueError('O destino das cópias deve ser uma pasta.')
     return {n.zfill(4) for n in numeros}, pastas, saida
+
+
+class ConflitoDestino(FileExistsError):
+    """Outro arquivo já ocupa o nome definitivo; nenhuma substituição."""
+
+
+def _renomear_sem_substituir(origem: Path, alvo: Path) -> None:
+    try:
+        if os.name == 'nt':
+            # No Windows, rename recusa um nome já ocupado, inclusive na corrida.
+            os.rename(origem, alvo)
+        else:
+            # rename POSIX substituiria o destino; link exige um nome livre.
+            os.link(origem, alvo)
+            origem.unlink()
+    except FileExistsError as erro:
+        raise ConflitoDestino(f'Destino já ocupado: {alvo}') from erro
+
+
+def _assinatura(arquivo: Path) -> tuple[int, int, int, int, int]:
+    estado = arquivo.stat()
+    return (estado.st_dev, estado.st_ino, estado.st_size,
+            estado.st_mtime_ns, estado.st_ctime_ns)
+
+
+def _hash(arquivo: Path) -> bytes:
+    digest = hashlib.sha256()
+    with arquivo.open('rb') as stream:
+        for bloco in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(bloco)
+    return digest.digest()
+
+
+def _conferir_origem(origem: Path, estado: tuple[int, int, int, int, int], digest: bytes) -> None:
+    if _assinatura(origem) != estado or _hash(origem) != digest or _assinatura(origem) != estado:
+        raise OSError('Origem alterada durante a transferência; confira o arquivo antes de repetir.')
+
+
+def _copiar_verificado(origem: Path, alvo: Path, *, remover_origem: bool = False) -> None:
+    estado = _assinatura(origem)
+    with tempfile.NamedTemporaryFile(dir=alvo.parent, prefix='.nunes-', suffix='.tmp', delete=False) as stream:
+        temporario = Path(stream.name)
+    try:
+        _ = shutil.copy2(origem, temporario)
+        with temporario.open('r+b') as stream:
+            os.fsync(stream.fileno())
+        digest = _hash(temporario)
+        _conferir_origem(origem, estado, digest)
+        _renomear_sem_substituir(temporario, alvo)
+        try:
+            if _hash(alvo) != digest:
+                raise OSError('Conteúdo publicado diverge da cópia verificada.')
+            if remover_origem:
+                _conferir_origem(origem, estado, digest)
+                origem.unlink()
+        except OSError as erro:
+            # Após publicar, nunca apagar o destino como tentativa de rollback.
+            raise OSError(f'Destino publicado em {alvo}; origem não removida pela operação. '
+                          + 'Confira as duas pastas antes de repetir.') from erro
+    finally:
+        temporario.unlink(missing_ok=True)
+
+
+def _mover_sem_substituir(origem: Path, alvo: Path) -> None:
+    try:
+        _renomear_sem_substituir(origem, alvo)
+    except OSError as erro:
+        # Só a diferença de volumes permite copiar. Permissão, conflito e
+        # indisponibilidade não autorizam outro método de movimentação.
+        if erro.errno != errno.EXDEV:
+            raise
+        _copiar_verificado(origem, alvo, remover_origem=True)
 
 
 def executar(acao, numeros, pastas, destino, *, cancelar=None, relatar=print):
@@ -105,18 +180,14 @@ def executar(acao, numeros, pastas, destino, *, cancelar=None, relatar=print):
                         continue
                     alvo.parent.mkdir(parents=True, exist_ok=True)
                     if acao == 'buscar':
-                        # Uma cópia incompleta nunca ocupa o nome definitivo da nota.
-                        with tempfile.NamedTemporaryFile(dir=alvo.parent, prefix='.nunes-', suffix='.tmp', delete=False) as arquivo_temp:
-                            temporario = Path(arquivo_temp.name)
-                        try:
-                            shutil.copy2(source, temporario)
-                            temporario.rename(alvo)
-                        finally:
-                            temporario.unlink(missing_ok=True)
+                        _copiar_verificado(source, alvo)
                     else:
-                        shutil.move(str(source), str(alvo))
+                        _mover_sem_substituir(source, alvo)
                     resumo['concluidos'] += 1
                     relatar(f'{"Copiado" if acao == "buscar" else "Movido"}: {arquivo}')
+                except ConflitoDestino:
+                    resumo['ignorados'] += 1
+                    relatar(f'Conflito: já existe no destino; origem preservada: {arquivo}')
                 except OSError as erro:
                     resumo['erros'] += 1
                     relatar(f'Erro em {arquivo}: {erro}')

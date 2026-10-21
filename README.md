@@ -14,6 +14,55 @@ Enquanto estiver ociosa, a interface preserva status, resultado e campos. A cone
 
 O contrato `integracao_hub.py` é copiado do nunes-hub, que mantém a fonte. Ele fornece identidade, saúde, parada e instância única, inclusive nos iniciadores console `find.py` e `move.py`. As entradas console continuam lendo `notas.txt` da pasta de trabalho e as mesmas variáveis de ambiente. Executáveis antigos em `dist` precisam ser reconstruídos para incorporar as mudanças.
 
+## Preservação de arquivos — E6, 20/10/2026
+
+A movimentação usa uma publicação que recusa um destino já ocupado. Uma
+colisão criada depois da verificação inicial também preserva os arquivos e
+aparece no registro como **Conflito**, somando em **já existentes**, sem
+somar conclusão. Não há repetição por outro método em caso de permissão,
+indisponibilidade ou conflito. Console e interface usam o mesmo executor.
+
+No Windows, o movimento no mesmo volume usa `os.rename`, sem `shutil.move`.
+Somente `EXDEV` (volumes diferentes) permite a alternativa de cópia: temporário
+exclusivo na pasta de destino, sincronização, comparação SHA-256 com a origem,
+publicação sem substituição e conferência do arquivo final e da origem antes
+de removê-la. A busca também usa essa cópia verificada, mantendo a origem.
+Referências: [rename](https://docs.python.org/3.13/library/os.html#os.rename)
+e [move](https://docs.python.org/3.13/library/shutil.html#shutil.move).
+
+Se a publicação terminar e a conferência/remoção falhar, a operação informa
+erro com o caminho publicado e mantém a origem disponível, sem apagar o
+destino como tentativa de desfazer. Uma nova execução encontra esse destino
+e o ignora: **confira conteúdo e caminhos manualmente antes de decidir sobre
+duplicatas**. Queda do processo pode deixar um `.nunes-*.tmp` ou as duas
+cópias; esses temporários não entram na seleção de notas e não são retomados
+nem apagados automaticamente em outra execução. Não há diário de recuperação.
+
+As origens devem estar estáveis. As verificações detectam mudanças de
+identidade, tamanho, datas e conteúdo, mas não bloqueiam edições/remoções por
+outros programas depois da conferência. A proteção impede que esta ferramenta
+substitua um nome ocupado; não controla alterações posteriores de terceiros.
+A cópia conserva os metadados suportados por `copy2`, sem garantir ACLs,
+proprietário ou fluxos alternativos. Filtros de nomes e organização por data
+de modificação permanecem conforme descritos acima.
+
+Validação local: **28 testes Python e dois JavaScript aprovados**, com 14
+testes Python novos. Abrangem a corrida com conteúdo distinto, dois escritores,
+permissão, cópia parcial/divergente, sincronização, origem/destino alterados,
+publicação e remoção com falha, além dos fluxos console e worker web. Os testes
+usaram arquivos sintéticos temporários; a diferença entre volumes foi simulada
+por `EXDEV`. Nenhuma nota ou pasta de rede real foi alterada. A análise de tipos
+mantém dois erros anteriores de `operacoes.py`, confirmados no código de HEAD
+(mês opcional e inferência do resumo), além de avisos; sem erro novo na E6.
+
+Windows local foi validado. Compartilhamento real, volumes físicos distintos,
+queda de energia e POSIX continuam sem homologação. Antes do uso operacional
+em rede, conferir em área isolada de testes: destino existente, criação
+concorrente com conteúdo distinto e indisponibilidade durante cópia/publicação;
+comparar origem/destino e confirmar que falhas não removem a origem. Reabrir
+a aplicação Python para carregar o código. Executáveis antigos em `dist`
+precisam ser reconstruídos antes da distribuição.
+
 ## Instalação e validação
 
 Python 3.10 ou superior, somente biblioteca padrão. Crie `.venv` com `python -m venv --without-pip .venv`. O CMD e o hub usam `.venv/Scripts/pythonw.exe`, com processo próprio e sem console. Para abrir diretamente pelo Python: `.venv/Scripts/python.exe notas.py`.
