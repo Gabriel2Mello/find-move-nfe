@@ -15,6 +15,7 @@ from operacoes import MONTHS, executar
 
 class TestMetricasFindMove(unittest.TestCase):
     def setUp(self):
+        self.enterContext(patch('sincronizar_estatisticas.ler_configuracao', return_value=None))
         self.temp = self.enterContext(tempfile.TemporaryDirectory())
         self.raiz = Path(self.temp)
         self.origem = self.raiz / 'origem'

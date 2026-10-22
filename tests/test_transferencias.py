@@ -24,6 +24,7 @@ class TestTransferencias(unittest.TestCase):
         self.unlink = Path.unlink
 
     def setUp(self):
+        self.enterContext(patch('sincronizar_estatisticas.ler_configuracao', return_value=None))
         temp = tempfile.TemporaryDirectory()
         self.addCleanup(temp.cleanup)
         self.raiz = Path(temp.name)

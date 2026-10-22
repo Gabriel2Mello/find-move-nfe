@@ -124,6 +124,33 @@ externa foi operada. Evidências locais: `nunes-hub/.local/e11-find-move-2026-10
 
 ## Instalação e validação
 
+### Piloto de estatísticas com central local — 21/10/2026
+
+O cliente opcional `sincronizar_estatisticas.py` replica os eventos persistidos
+de arquivos transferidos para a [central de estatísticas](../nunes-estatisticas/README.md).
+O mesmo cliente acompanha as entradas web e console, sem depender do Hub
+instalado. O vínculo é preparado pela central e fica em `.local/central.json`;
+sem esse arquivo e sem `NUNES_CENTRAL_CONFIG`, não há sincronização.
+
+O histórico local permanece disponível. A central confirma depois de gravar;
+falhas conservam a pendência e reenvios não acrescentam contagem. Não execute
+uma transferência novamente para recuperar estatística. O envio inclui eventos
+locais anteriores à habilitação e tenta novamente enquanto a aplicação estiver
+aberta, na próxima abertura ou por comando manual. Detalhes de instalação,
+consulta, recuperação e distribuição estão no guia da central. Não há serviço
+permanente nem implantação no TS01 nesta etapa. O Hub oferece uma seção
+**Central local** com os totais recebidos e pendências, separada do relatório
+local com filtros. A consulta do Hub não envia eventos nem cria confirmações.
+O cliente deste projeto é distribuído também ao Hub e ao Cofre; mantenha as três cópias
+de `sincronizar_estatisticas.py` iguais, juntamente com o contrato do piloto.
+
+Validação deste piloto: 27 testes de central/integração, 47 regressões Python
+desta ferramenta e sete JavaScript aprovados, com arquivos sintéticos e uma
+conta Windows. Inclui perda de resposta após commit, central indisponível,
+reinício em processos separados e pacote individual sem repositórios irmãos.
+
+### Ambiente e testes da ferramenta
+
 Python 3.10 ou superior, somente biblioteca padrão. Crie `.venv` com `python -m venv --without-pip .venv`. O CMD e o hub usam `.venv/Scripts/pythonw.exe`, com processo próprio e sem console. Para abrir diretamente pelo Python: `.venv/Scripts/python.exe notas.py`.
 
 Execute `python -m unittest discover -s tests -v` e `node --test tests/test_notas_ui.cjs`. Em 16/10/2026 passaram 14 testes Python com arquivos temporários e dois JavaScript: formatos PDF/XML, filtros, cópia, movimentação, arquivos existentes, validação, cancelamento, HTTP local, várias abas, integração com o monitor e preservação do estado ocioso. Nenhuma operação em documentos reais foi necessária para esses testes.

@@ -11,6 +11,7 @@ import time
 
 from integracao_hub import atender_integracao, executar_interface
 from operacoes import caminhos_ambiente, executar, preparar
+from sincronizar_estatisticas import Sincronizador
 
 RAIZ = Path(__file__).resolve().parent
 
@@ -304,15 +305,16 @@ class Handler(BaseHTTPRequestHandler):
 
 def main(integracao):
     servidor = Servidor()
-    try:
-        integracao.publicar(servidor, servidor.encerrar, servidor.situacao)
-        servidor.serve_forever(poll_interval=.2)
-    except KeyboardInterrupt:
-        servidor.cancelar.set()
-    finally:
-        servidor.server_close()
-        if servidor.worker is not None:
-            servidor.worker.join()
+    with Sincronizador(relatar=servidor.relatar):
+        try:
+            integracao.publicar(servidor, servidor.encerrar, servidor.situacao)
+            servidor.serve_forever(poll_interval=.2)
+        except KeyboardInterrupt:
+            servidor.cancelar.set()
+        finally:
+            servidor.server_close()
+            if servidor.worker is not None:
+                servidor.worker.join()
     return 0
 
 

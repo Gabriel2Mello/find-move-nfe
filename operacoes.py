@@ -11,6 +11,7 @@ import shutil
 import tempfile
 
 from metricas_nunes import registrar_evento
+from sincronizar_estatisticas import Sincronizador
 
 VARIAVEIS = ('CAMINHO_DANFE_MATRIZ', 'CAMINHO_DANFE_FILIAL',
              'CAMINHO_XML_MATRIZ', 'CAMINHO_XML_FILIAL')
@@ -214,6 +215,11 @@ def executar(acao, numeros, pastas, destino, *, cancelar=None, relatar=print):
 
 
 def console(acao):
+    with Sincronizador():
+        return _console(acao)
+
+
+def _console(acao):
     from time import perf_counter
     inicio = perf_counter()
     arquivo = Path.cwd() / 'notas.txt'
