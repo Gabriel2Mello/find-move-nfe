@@ -255,6 +255,8 @@ class Handler(BaseHTTPRequestHandler):
         else:
             recursos = {'/notas.css': ('web/notas.css', 'text/css; charset=utf-8'),
                         '/notas.js': ('web/notas.js', 'text/javascript; charset=utf-8'),
+                        '/nunes-tema.js': ('web/nunes-tema.js', 'text/javascript; charset=utf-8'),
+                        '/nunes-assinatura.css': ('web/nunes-assinatura.css', 'text/css; charset=utf-8'),
                         '/icone.svg': ('icons/icone.svg', 'image/svg+xml'),
                         '/favicon.ico': ('icons/icone.ico', 'image/x-icon')}
             if self.path in recursos:

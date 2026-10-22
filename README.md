@@ -170,6 +170,31 @@ Execute `python -m unittest discover -s tests -v` e `node --test tests/test_nota
 
 Servidor em `127.0.0.1`, porta automática, token por execução, Host exato e validação de Origin nas ações. O servidor serve somente recursos explicitamente cadastrados. O processamento roda fora da requisição HTTP; a interface continua disponível durante a operação.
 
+### Controle de tema compartilhado
+
+A interface usa a cópia local `web/nunes-tema.js`, versão **1.1.0**, cuja
+[fonte e contrato](../estrutura-nunes/identidade-visual/interfaces/README.md)
+ficam no estrutura-nunes. A aplicação inicializa o controle com sua chave
+`notas-tema` e `cookie: true`, preservando a preferência existente: cookie
+válido antes do armazenamento local, e escuro sem preferência válida.
+
+Para atualizar as cópias das seis interfaces locais, execute na raiz do estrutura-nunes:
+
+```powershell
+./identidade-visual/interfaces/distribuir-tema.ps1
+./identidade-visual/interfaces/distribuir-tema.ps1 -Verificar
+```
+
+O CSS da assinatura Essencial fica em `web/nunes-assinatura.css`, com fonte
+compartilhada no mesmo guia e cores herdadas desta aplicação. Tema e assinatura
+têm destinos declarados em `componentes.json`; use `distribuir-componentes.ps1`
+para atualizar ambos ou acrescente `-Verificar` para somente conferir hashes.
+
+Distribua o arquivo junto da pasta `web` e reabra a aplicação para carregar a
+cópia atualizada. A execução usa apenas arquivos locais. Valide com os comandos
+Python e JavaScript acima; o teste HTTP confere recurso, ordem dos scripts
+e política de segurança existente.
+
 ## Identidade e autoria
 
 Ícone gerado pelo modelo aprovado em `estrutura-nunes/identidade-visual`, cadastrado como `find-move-nfe` na paleta central: azul petróleo **#0E7490**, símbolo branco preservado. Recursos em `icons/`, favicon e cabeçalho da interface, `icone.ico` para compatibilidade e `notas.svg` distribuído ao hub. O gerador sinalizou proximidade com o cinza ardósia da Impressão de OPs; a identificação também usa os nomes visíveis.

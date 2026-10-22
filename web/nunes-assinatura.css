@@ -1,0 +1,5 @@
+/* NunesAssinatura 1.0.0 — assinatura Essencial; cores do projeto consumidor. */
+.assinatura{display:inline-block;white-space:nowrap;color:var(--texto);text-decoration:none;font-weight:600;letter-spacing:.01em;padding-bottom:3px}
+.assinatura:hover{color:var(--destaque);text-decoration:none}
+.traco{display:inline-block;position:relative}
+.traco::after{content:'';position:absolute;height:1px;background:currentColor;bottom:-2px;left:5%;width:90%}

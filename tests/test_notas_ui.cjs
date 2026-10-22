@@ -10,7 +10,7 @@ function interfaceTeste(opcoes = {}) {
   let escritas = 0;
   const elemento = id => {
     if (!elementos.has(id)) elementos.set(id, {
-      texto:'', value:'', disabled:false, classList:{toggle(){}},
+      texto:'', value:'', tagName:id === 'tema' ? 'BUTTON' : 'INPUT', setAttribute(){}, disabled:false, classList:{toggle(){}},
       eventos:new Map(), addEventListener(nome, fn){this.eventos.set(nome, fn);},
       set textContent(valor) {this.texto=valor; escritas++;},
       get textContent() {return this.texto;}
@@ -19,13 +19,16 @@ function interfaceTeste(opcoes = {}) {
   };
   const contexto = vm.createContext({
     document:{getElementById:elemento, querySelector:()=>({content:'teste'}),
-      querySelectorAll:()=>[], documentElement:{dataset:{}}},
+      querySelectorAll:()=>[], documentElement:{dataset:{}, setAttribute(nome, valor){this.dataset.tema=valor;}, removeAttribute(){delete this.dataset.tema;}}},
     localStorage:{getItem:()=>null}, matchMedia:()=>({matches:false,addEventListener(){}}),
     crypto:{randomUUID:()=> 'pagina-teste'}, AbortController, AbortSignal,
     window:{addEventListener:(nome, fn)=>eventos.set(nome, fn)},
     fetch:opcoes.fetch || (()=>new Promise(()=>{})), setTimeout,
     confirm:()=>true
   });
+  contexto.registrarEvento = (nome, fn)=>eventos.set(nome, fn);
+  vm.runInContext('window = globalThis; window.addEventListener = registrarEvento;', contexto);
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'../web/nunes-tema.js'),'utf8'), contexto);
   vm.runInContext(fs.readFileSync(path.join(__dirname,'../web/notas.js'),'utf8'), contexto);
   return {elemento, eventos, contexto, avaliar:codigo=>vm.runInContext(codigo, contexto),
     escritas:()=>escritas, receber:estado=> {

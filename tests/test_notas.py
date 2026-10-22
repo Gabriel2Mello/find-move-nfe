@@ -152,9 +152,19 @@ class TestServidor(unittest.TestCase):
         self.assertIn(self.servidor.token.encode(), html)
         self.assertIn(b'Gabriel2Mello', html)
         self.assertEqual(html.count(b'class="traco"'), 2)
-        for recurso in ('/notas.css', '/notas.js', '/icone.svg', '/favicon.ico'):
+        for recurso in ('/notas.css', '/nunes-assinatura.css', '/nunes-tema.js', '/notas.js', '/icone.svg', '/favicon.ico'):
             self.assertEqual(self.pedido('GET', recurso)[0], 200)
         self.assertEqual(self.pedido('GET', '/../../notas.py')[0], 404)
+        self.assertLess(html.index(b'/nunes-tema.js'), html.index(b'/notas.js'))
+        conexao = http.client.HTTPConnection('127.0.0.1', self.servidor.server_port, timeout=3)
+        self.addCleanup(conexao.close)
+        conexao.request('GET', '/nunes-tema.js')
+        resposta = conexao.getresponse()
+        self.assertEqual(resposta.status, 200)
+        self.assertEqual(resposta.getheader('Content-Type'), 'text/javascript; charset=utf-8')
+        self.assertEqual(resposta.getheader('Content-Security-Policy'),
+                         "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
+        self.assertEqual(resposta.read(), (Path(__file__).resolve().parents[1] / 'web/nunes-tema.js').read_bytes())
 
     def test_destino_persiste_apos_reabrir_servidor_sem_executar_operacao(self):
         destino = str(self.servidor.arquivo_preferencias.parent / 'cópias')

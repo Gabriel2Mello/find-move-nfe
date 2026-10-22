@@ -5,19 +5,7 @@ const pagina = crypto.randomUUID(), presenca = new AbortController();
 let ocupado = false, encerrado = false, carregado = false, enviando = false, saindo = false;
 let assinaturaEstado = '';
 let versaoEstado = -1, destinoSalvo = null, revisaoDestino = 0, salvamentosDestino = 0;
-function temaAtual() {return document.documentElement.dataset.tema || 'escuro';}
-function atualizarTema() {$('tema').textContent = temaAtual() === 'escuro' ? 'Tema claro' : 'Tema escuro';}
-function salvarTema(tema) {
-  try {document.cookie = `notas-tema=${tema}; Max-Age=31536000; Path=/; SameSite=Strict`;} catch {}
-  try {localStorage.setItem('notas-tema', tema);} catch {}
-}
-let temaSalvo = null;
-try {const salvo = document.cookie.split(';').map(item => item.trim()).find(item => item.startsWith('notas-tema='))?.slice('notas-tema='.length); if (['claro','escuro'].includes(salvo)) temaSalvo = salvo;} catch {}
-try {if (!temaSalvo) {const salvo = localStorage.getItem('notas-tema'); if (['claro','escuro'].includes(salvo)) temaSalvo = salvo;}} catch {}
-document.documentElement.dataset.tema = temaSalvo || 'escuro';
-if (temaSalvo) salvarTema(temaSalvo);
-atualizarTema();
-$('tema').addEventListener('click', () => {const tema = temaAtual() === 'escuro' ? 'claro' : 'escuro'; document.documentElement.dataset.tema = tema; salvarTema(tema); atualizarTema();});
+window.NunesTema.iniciar({controle:$('tema'), chave:'notas-tema', cookie:true});
 function avisar(texto, erro = false) {$('status').textContent = texto; $('status').classList.toggle('erro', erro);}
 function botoes() {
   $('buscar').disabled = $('mover').disabled = !carregado || ocupado || enviando || encerrado;
