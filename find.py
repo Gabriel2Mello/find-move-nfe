@@ -4,7 +4,7 @@ from integracao_hub import executar_console
 
 
 def main():
-    console('buscar')
+    return console('buscar')
 
 
 if __name__ == '__main__':

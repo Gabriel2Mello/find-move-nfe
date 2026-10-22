@@ -25,6 +25,12 @@ notas…” nem apaga o resumo final. Novas execuções continuam atualizando o 
 
 O contrato `integracao_hub.py` é copiado do nunes-hub, que mantém a fonte. Ele fornece identidade, saúde, parada e instância única, inclusive nos iniciadores console `find.py` e `move.py`. As entradas console continuam lendo `notas.txt` da pasta de trabalho e as mesmas variáveis de ambiente. Executáveis antigos em `dist` precisam ser reconstruídos para incorporar as mudanças.
 
+As entradas console retornam código 1 quando falta o arquivo de entrada, há
+erro de configuração/validação ou a transferência termina com erros. Código
+0 indica execução sem erros técnicos; notas não encontradas e destinos já
+existentes continuam pendências informadas, sem sobrescrita. Confira o resumo
+antes de repetir uma operação parcialmente concluída.
+
 ## Preservação de arquivos — E6, 20/10/2026
 
 A movimentação usa uma publicação que recusa um destino já ocupado. Uma

@@ -256,6 +256,21 @@ class TestTransferencias(unittest.TestCase):
         self.assertEqual(origem.read_bytes(), b'nota sintetica original')
         self.assertEqual(alvo.read_bytes(), b'concorrente web')
 
+    def test_console_arquivo_ausente_e_erro_de_transferencia_retorna_falha(self):
+        with patch.object(Path, 'cwd', return_value=self.raiz), patch('builtins.input', return_value=''), patch('sys.stdout', StringIO()):
+            self.assertEqual(console('buscar'), 1)
+            (self.raiz / 'notas.txt').write_text('1234', encoding='utf-8')
+            with patch('operacoes.preparar', return_value=({'1234'}, [self.raiz], self.raiz / 'destino')), \
+                    patch('operacoes.executar', return_value={'concluidos': 1, 'erros': 1}):
+                self.assertEqual(console('buscar'), 1)
+
+    def test_entradas_console_propagam_codigo(self):
+        import find
+        import move
+        for entrada in (find, move):
+            with self.subTest(entrada=entrada.__name__), patch.object(entrada, 'console', return_value=1):
+                self.assertEqual(entrada.main(), 1)
+
 
 if __name__ == '__main__':
     unittest.main()

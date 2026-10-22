@@ -223,12 +223,16 @@ def _console(acao):
     from time import perf_counter
     inicio = perf_counter()
     arquivo = Path.cwd() / 'notas.txt'
+    codigo = 0
     try:
         numeros, pastas, destino = preparar(arquivo.read_text(), caminhos_ambiente(), str(Path.cwd() / 'notas'))
         print('Aguarde... buscando notas' if acao == 'buscar' else 'Aguarde... movendo notas')
         resumo = executar(acao, numeros, pastas, destino)
+        codigo = 1 if resumo['erros'] else 0
         print(f"Concluídos: {resumo['concluidos']} · Erros: {resumo['erros']}")
         print(f'Terminado em: {perf_counter() - inicio:.2f} segundos')
     except (OSError, ValueError) as erro:
+        codigo = 1
         print(erro)
     input('Pressione Enter para fechar...')
+    return codigo
