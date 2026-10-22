@@ -1,5 +1,6 @@
 """Interface local única de busca e movimentação, integrada ao Hub Nunes."""
 from collections import deque
+from contextlib import ExitStack
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
@@ -9,7 +10,7 @@ import tempfile
 from threading import Event, RLock, Thread
 import time
 
-from integracao_hub import atender_integracao, executar_interface
+from integracao_hub import MedidorAbertura, atender_integracao, executar_interface
 from operacoes import caminhos_ambiente, executar, preparar
 from sincronizar_estatisticas import Sincronizador
 
@@ -304,10 +305,14 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main(integracao):
-    servidor = Servidor()
-    with Sincronizador(relatar=servidor.relatar):
+    with MedidorAbertura('find-move-nfe') as medidor, ExitStack() as recursos:
+        with medidor.etapa('servidor_e_estado'):
+            servidor = Servidor()
         try:
-            integracao.publicar(servidor, servidor.encerrar, servidor.situacao)
+            with medidor.etapa('sincronizacao'):
+                recursos.enter_context(Sincronizador(relatar=servidor.relatar))
+            with medidor.etapa('publicacao'):
+                integracao.publicar(servidor, servidor.encerrar, servidor.situacao)
             servidor.serve_forever(poll_interval=.2)
         except KeyboardInterrupt:
             servidor.cancelar.set()

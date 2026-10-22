@@ -31,6 +31,13 @@ erro de configuração/validação ou a transferência termina com erros. Códig
 existentes continuam pendências informadas, sem sobrescrita. Confira o resumo
 antes de repetir uma operação parcialmente concluída.
 
+## Diagnóstico de abertura
+
+A abertura registra servidor/estado, entrada do sincronizador e publicação
+em `logs/find-move-nfe-abertura.log`, na pasta de presença da sessão Nunes.
+Reabra a aplicação para carregar a mudança. Valores medidos, localização,
+retenção e limites estão em [Tempos por etapa](../nunes-hub/TEMPOS_ABERTURA.md).
+
 ## Preservação de arquivos — E6, 20/10/2026
 
 A movimentação usa uma publicação que recusa um destino já ocupado. Uma
