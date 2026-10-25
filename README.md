@@ -1,21 +1,28 @@
 # Busca e Move Notas
 
-Uma aplicação Nunes com duas ações: **Busca-notas** copia DANFEs e XMLs; **Move-notas** organiza os arquivos na própria origem, em pastas de ano e mês. Abra pelo **Hub Nunes** ou por `Abrir Busca e Move Notas.cmd`.
+Uma aplicação Nunes com duas ações: **Buscar** copia DANFEs e XMLs; **Mover** organiza os arquivos na própria origem, em pastas de ano e mês. Abra pelo **Hub Nunes** ou por `Abrir Busca e Move Notas.cmd`.
 
-Informe as notas na interface e escolha uma ação. `notas.txt`, quando existir, é carregado ao abrir; a interface não altera esse arquivo. São aceitos números de até quatro dígitos, separados por espaço, linha, vírgula ou ponto e vírgula. Números menores são completados com zeros. A identificação nos nomes dos arquivos preserva as posições dos scripts originais: quatro dígitos antes do dígito verificador do PDF e o trecho correspondente na chave do XML. Somente arquivos iniciados por `nfe`, sem distinção de maiúsculas, com extensão PDF ou XML são considerados.
+**Desktop Windows:** `notas.py` agora abre uma janela própria WebView2. Consulte
+[DESKTOP.md](DESKTOP.md) para preparar `.venv-desktop` x64, gerar atalho/pacote,
+migrar dados e integrar o executável ao Hub. A segunda abertura restaura a mesma
+janela, sem perder campos ou repetir operação. `find.py` e `move.py` conservam
+o modo console e o ambiente anterior.
+
+Informe as notas na interface e escolha uma ação. A lista começa vazia no web/desktop; a interface não lê nem altera `notas.txt`. Somente as entradas console `find.py` e `move.py` carregam esse arquivo. São aceitos números de até quatro dígitos, separados por espaço, linha, vírgula ou ponto e vírgula. Números menores são completados com zeros. A identificação nos nomes dos arquivos preserva as posições dos scripts originais: quatro dígitos antes do dígito verificador do PDF e o trecho correspondente na chave do XML. Somente arquivos iniciados por `nfe`, sem distinção de maiúsculas, com extensão PDF ou XML são considerados.
 
 As origens vêm de `CAMINHO_DANFE_MATRIZ`, `CAMINHO_DANFE_FILIAL`, `CAMINHO_XML_MATRIZ` e `CAMINHO_XML_FILIAL`. Podem ser ajustadas nesta aba em **Pastas de origem**. A busca percorre a raiz e as subpastas do ano atual e copia para `notas/` por padrão. A movimentação não entra em pastas com nomes numéricos; usa a **data de modificação do arquivo**, não a data de emissão, para organizar em `ANO/MÊS` na origem. Nenhuma ação é executada ao abrir a interface.
 
 **Salvar cópias em** fica salvo para as próximas aberturas. A gravação acontece
-ao sair do campo, iniciar uma ação, encerrar pelo botão ou fechar a aba, sem
+ao sair do campo, iniciar uma ação, encerrar pelo botão ou fechar a janela, sem
 precisar executar uma busca. A ajuda abaixo do campo confirma a gravação ou
-informa a falha. A preferência fica em `.local/preferencias.json` nesta instalação;
+informa a falha. Em desenvolvimento a preferência fica em `.local/preferencias.json` nesta instalação;
 inclua esse arquivo no backup para conservar a escolha. Sem preferência salva,
-continua valendo `notas/`. Notas e ajustes das origens mantêm o comportamento acima.
+continua valendo `notas/`. No pacote esses arquivos ficam nos dados persistentes
+do perfil, conforme [DESKTOP.md](DESKTOP.md). Notas e ajustes das origens mantêm o comportamento acima.
 
 Arquivos existentes no destino são preservados nas duas ações. Na busca, isso substitui a sobrescrita feita pelo script antigo. O acompanhamento informa cópias/movimentações, arquivos já existentes, erros e notas não encontradas. Arquivos com o mesmo nome em origens diferentes permanecem na origem quando já houver um destino com esse nome; confira o registro. Erros de acesso são mostrados, sem tratar uma pasta inacessível como busca concluída sem problemas.
 
-**Parar operação**, **Encerrar**, fechar a última aba ou solicitar encerramento pelo monitor do hub concluem o arquivo em andamento antes de parar. Outra aba conectada mantém o servidor aberto. Há tolerância de cinco segundos para reconexão e limite inicial de dois minutos sem abas. Apenas uma operação executa por vez. A aplicação não utiliza o Sisplan e pode funcionar junto das ferramentas que o reservam.
+**Parar operação**, **Encerrar**, X da janela ou encerramento pelo monitor do Hub concluem o arquivo em andamento antes de parar. X durante operação confirma uma vez. A janela controla a vida do backend: perder presença/conexão não encerra o desktop e fechar o Hub mantém a ferramenta aberta. Apenas uma operação executa por vez. A aplicação não utiliza o Sisplan e pode funcionar junto das ferramentas que o reservam. O comportamento antigo de encerramento pela última aba permanece apenas nos testes do servidor web.
 
 Enquanto estiver ociosa, a interface preserva status, resultado e campos. A conexão de presença continua aberta para detectar a saída das abas, mas só transmite estado quando houver mudança; sinais de presença não redesenham a interface.
 
@@ -164,7 +171,10 @@ reinício em processos separados e pacote individual sem repositórios irmãos.
 
 ### Ambiente e testes da ferramenta
 
-Python 3.10 ou superior, somente biblioteca padrão. Crie `.venv` com `python -m venv --without-pip .venv`. O CMD e o hub usam `.venv/Scripts/pythonw.exe`, com processo próprio e sem console. Para abrir diretamente pelo Python: `.venv/Scripts/python.exe notas.py`.
+O executor/console usa somente biblioteca padrão, Python 3.10 ou superior.
+O desktop usa o ambiente Windows x64 com dependências fixadas descrito em
+[DESKTOP.md](DESKTOP.md). CMD e Hub preferem `.venv-desktop/Scripts/pythonw.exe`;
+para abrir diretamente: `.venv-desktop/Scripts/python.exe notas.py`.
 
 Execute `python -m unittest discover -s tests -v` e `node --test tests/test_notas_ui.cjs`. Em 16/10/2026 passaram 14 testes Python com arquivos temporários e dois JavaScript: formatos PDF/XML, filtros, cópia, movimentação, arquivos existentes, validação, cancelamento, HTTP local, várias abas, integração com o monitor e preservação do estado ocioso. Nenhuma operação em documentos reais foi necessária para esses testes.
 
@@ -175,8 +185,9 @@ Servidor em `127.0.0.1`, porta automática, token por execução, Host exato e v
 A interface usa a cópia local `web/nunes-tema.js`, versão **1.1.0**, cuja
 [fonte e contrato](../estrutura-nunes/identidade-visual/interfaces/README.md)
 ficam no estrutura-nunes. A aplicação inicializa o controle com sua chave
-`notas-tema` e `cookie: true`, preservando a preferência existente: cookie
-válido antes do armazenamento local, e escuro sem preferência válida.
+`notas-tema` e `cookie: true`. O desktop prioriza a preferência persistida no
+backend, depois o legado válido disponível (cookie antes do armazenamento local)
+e aplica claro sem preferência. O componente distribuído conserva seu contrato.
 
 Para atualizar as cópias das seis interfaces locais, execute na raiz do estrutura-nunes:
 
@@ -199,6 +210,6 @@ e política de segurança existente.
 
 Ícone gerado pelo modelo aprovado em `estrutura-nunes/identidade-visual`, cadastrado como `find-move-nfe` na paleta central: azul petróleo **#0E7490**, símbolo branco preservado. Recursos em `icons/`, favicon e cabeçalho da interface, `icone.ico` para compatibilidade e `notas.svg` distribuído ao hub. O gerador sinalizou proximidade com o cinza ardósia da Impressão de OPs; a identificação também usa os nomes visíveis.
 
-A assinatura segue `estrutura-nunes/identidade-visual/marca-pessoal/README.md`: **g2mello · Essencial**, com dois traços separados sob os `l`, link do GitHub e contraste nos temas claro e escuro. Não há sincronização automática com a fonte visual.
+A assinatura segue `estrutura-nunes/identidade-visual/marca-pessoal/README.md`: **Desenvolvido por g2mello**, no estilo **Essencial**, com dois traços separados sob os `l`, link do GitHub e contraste nos temas claro e escuro. Essencial é o nome do estilo, não texto do rodapé. Não há sincronização automática com a fonte visual.
 
 Criado por Gabriel Mello · [g2mello](https://github.com/Gabriel2Mello)

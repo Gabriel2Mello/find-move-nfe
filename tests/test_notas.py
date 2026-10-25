@@ -118,6 +118,7 @@ class TestServidor(unittest.TestCase):
     def setUp(self):
         temp = self.enterContext(tempfile.TemporaryDirectory())
         self.enterContext(patch('notas.RAIZ', Path(temp)))
+        self.enterContext(patch.dict(os.environ, {'NUNES_NOTAS_DADOS': temp}))
         # Recursos são código; preferências e notas operacionais ficam isoladas.
         from notas import RAIZ
         fonte = Path(__file__).resolve().parents[1]
@@ -185,6 +186,19 @@ class TestServidor(unittest.TestCase):
         self.assertEqual(dados['destino'], str(self.servidor.arquivo_preferencias.parent.parent / 'notas'))
         self.assertEqual(dados['caminhos'], ['origem sintética'] * 4)
         self.assertFalse(self.servidor.arquivo_preferencias.exists())
+
+    def test_web_e_desktop_nao_carregam_nem_alteram_notas_txt(self):
+        arquivo = self.servidor.dados / 'notas.txt'
+        for desktop in (False, True):
+            self.servidor.modo_desktop = desktop
+            for conteudo in (b'1234\n5678', b'\xff\x00arquivo que a interface nao deve ler'):
+                with self.subTest(desktop=desktop, conteudo=conteudo):
+                    arquivo.write_bytes(conteudo)
+                    codigo, corpo = self.pedido('GET', '/api/configuracao')
+                    self.assertEqual(codigo, 200)
+                    self.assertEqual(json.loads(corpo)['notas'], '')
+                    self.assertEqual(arquivo.read_bytes(), conteudo)
+        self.assertIsNone(self.servidor.worker)
 
     def test_configuracao_recusa_invalida_e_preserva_anterior_na_falha_de_gravacao(self):
         self.assertEqual(self.pedido('POST', '/api/configuracao', {'destino': 'anterior'})[0], 200)

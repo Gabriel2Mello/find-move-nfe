@@ -1,0 +1,4 @@
+# Windows / WebView2; ambiente separado das entradas console.
+pywebview==6.2.1
+pythonnet==3.2.1
+pywin32==312

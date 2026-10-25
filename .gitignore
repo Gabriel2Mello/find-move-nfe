@@ -1,5 +1,8 @@
 notas.txt
 .venv/
+.venv-desktop/
+build/
+dist/
 __pycache__/
 notas/
 .local/

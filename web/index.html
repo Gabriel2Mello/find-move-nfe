@@ -1,41 +1,58 @@
 <!doctype html>
-<html lang="pt-BR" data-tema="escuro">
+<html lang="pt-BR" data-tema="{{TEMA}}">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="notas-token" content="{{TOKEN}}">
+  <meta name="notas-desktop" content="{{DESKTOP}}">
+  <meta name="notas-tema" content="{{TEMA}}">
+  <meta name="theme-color" content="#0E7490">
   <title>Busca e Move Notas · Nunes</title>
   <link rel="icon" href="/icone.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/notas.css"><link rel="stylesheet" href="/nunes-assinatura.css"><script src="/nunes-tema.js" defer></script><script src="/notas.js" defer></script>
 </head>
 <body>
-  <header><a class="marca" href="/"><img src="/icone.svg" width="44" height="44" alt=""><span>Busca e Move Notas<small>Nunes Enxovais · Fiscal</small></span></a><div class="acoes"><button id="tema" type="button">Tema claro</button><button id="encerrar" type="button">Encerrar</button></div></header>
+  <header><div class="marca"><img src="/icone.svg" width="36" height="36" alt=""><div><h1>Busca e Move Notas</h1><p>Nunes Enxovais · Fiscal</p></div></div><div class="acoes"><button id="tema" type="button">Tema claro</button><button id="encerrar" type="button">Encerrar</button></div></header>
   <main>
-    <p class="sobretitulo">DOCUMENTOS FISCAIS</p>
-    <h1>Encontre e organize suas notas.</h1>
-    <p class="introducao">Busque DANFEs e XMLs ou mova as notas para as pastas de ano e mês.</p>
+    <p id="tema-status" class="ajuda erro" role="status"></p>
     <div class="painel">
-      <section class="entrada" aria-labelledby="titulo-notas">
-        <h2 id="titulo-notas">Quais notas?</h2>
-        <label for="notas">Números das notas</label>
-        <textarea id="notas" rows="9" placeholder="1234&#10;5678" aria-describedby="ajuda-notas" spellcheck="false"></textarea>
-        <p class="ajuda" id="ajuda-notas">Até quatro dígitos por nota. Separe por linha, espaço ou vírgula. O arquivo notas.txt é carregado ao abrir.</p>
-        <label for="destino">Salvar cópias em</label><input id="destino" type="text" spellcheck="false" aria-describedby="ajuda-destino">
-        <p class="ajuda" id="ajuda-destino" role="status">A pasta é salva ao sair do campo ou fechar esta aba.</p>
-        <details><summary>Pastas de origem</summary><p class="ajuda">Carregadas das configurações deste computador. Ajustes valem nesta aba.</p>
-          <label for="caminho-0">DANFE · Matriz</label><input id="caminho-0" type="text" spellcheck="false">
-          <label for="caminho-1">DANFE · Filial</label><input id="caminho-1" type="text" spellcheck="false">
-          <label for="caminho-2">XML · Matriz</label><input id="caminho-2" type="text" spellcheck="false">
-          <label for="caminho-3">XML · Filial</label><input id="caminho-3" type="text" spellcheck="false">
-        </details>
-      </section>
-      <section class="operacoes" aria-labelledby="titulo-acoes">
-        <h2 id="titulo-acoes">O que deseja fazer?</h2>
-        <article class="opcao"><span class="etiqueta">BUSCA-NOTAS</span><h3>Buscar e copiar</h3><p>Procura na raiz e nas pastas do ano atual. Salva os arquivos encontrados na pasta de cópias.</p><button id="buscar" class="principal" type="button" disabled>Buscar notas <span aria-hidden="true">↗</span></button></article>
-        <article class="opcao"><span class="etiqueta">MOVE-NOTAS</span><h3>Mover e organizar</h3><p>Organiza as notas ainda fora das pastas de ano. Usa a data de modificação de cada arquivo para criar ano e mês na própria origem.</p><button id="mover" type="button" disabled>Mover notas <span aria-hidden="true">↗</span></button></article>
-        <p class="ajuda">Arquivos já existentes no destino são preservados. As duas ações usam a mesma lista de notas.</p>
+      <div class="preparacao">
+        <section class="entrada" aria-labelledby="titulo-notas">
+          <div class="cabecalho-notas">
+            <h2 id="titulo-notas"><label for="notas">Notas</label></h2>
+            <div class="acoes-notas" role="group" aria-label="Ações das notas">
+              <button id="buscar" class="principal" type="button" disabled>Buscar</button>
+              <button id="mover" type="button" disabled>Mover</button>
+            </div>
+          </div>
+          <textarea id="notas" rows="4" placeholder="1234&#10;5678" aria-describedby="ajuda-notas" spellcheck="false"></textarea>
+          <p class="ajuda" id="ajuda-notas">Até quatro dígitos por nota. Separe por linha, espaço ou vírgula.</p>
+          <div id="dica-destino" class="rotulo-ajuda">
+            <label for="destino" tabindex="0" aria-describedby="texto-dica-destino">Salvar cópias em</label>
+            <span id="texto-dica-destino" class="texto-dica" role="tooltip">A pasta é salva ao sair do campo ou encerrar.</span>
+          </div>
+          <div class="campo-pasta"><input id="destino" type="text" spellcheck="false" aria-describedby="texto-dica-destino ajuda-destino"><button type="button" data-campo="destino" aria-label="Alterar pasta de cópias" hidden>Alterar</button></div>
+          <p class="ajuda" id="ajuda-destino" role="status"></p>
+          <details><summary>Pastas de origem</summary><p class="ajuda">Carregadas deste computador. Ajustes valem somente nesta janela.</p>
+            <label for="caminho-0">DANFE · Matriz</label><div class="campo-pasta"><input id="caminho-0" type="text" spellcheck="false"><button type="button" data-campo="caminho-0" aria-label="Alterar origem DANFE Matriz" hidden>Alterar</button></div>
+            <label for="caminho-1">DANFE · Filial</label><div class="campo-pasta"><input id="caminho-1" type="text" spellcheck="false"><button type="button" data-campo="caminho-1" aria-label="Alterar origem DANFE Filial" hidden>Alterar</button></div>
+            <label for="caminho-2">XML · Matriz</label><div class="campo-pasta"><input id="caminho-2" type="text" spellcheck="false"><button type="button" data-campo="caminho-2" aria-label="Alterar origem XML Matriz" hidden>Alterar</button></div>
+            <label for="caminho-3">XML · Filial</label><div class="campo-pasta"><input id="caminho-3" type="text" spellcheck="false"><button type="button" data-campo="caminho-3" aria-label="Alterar origem XML Filial" hidden>Alterar</button></div>
+          </details>
+        </section>
+        <section class="operacoes" aria-labelledby="titulo-acoes">
+          <h2 id="titulo-acoes">Ações</h2>
+          <article class="opcao"><h3>Buscar e copiar</h3><p>Procura na raiz e no ano atual. Copia DANFEs e XMLs para a pasta escolhida.</p></article>
+          <article class="opcao"><h3>Mover e organizar</h3><p>Organiza na própria origem por ano e mês, usando a data de modificação dos arquivos.</p></article>
+          <p class="ajuda">As duas ações usam a lista acima. Arquivos já existentes são preservados.</p>
+        </section>
+      </div>
+      <section class="acompanhamento" aria-labelledby="titulo-andamento">
+        <div class="linha"><h2 id="titulo-andamento">Andamento e resultados</h2><button id="cancelar" type="button" disabled>Parar operação</button></div>
+        <p id="status" role="status" aria-live="polite">Carregando configurações…</p>
+        <p id="resumo"></p>
+        <pre id="logs" aria-label="Registro da operação"></pre>
       </section>
     </div>
-    <section class="acompanhamento" aria-labelledby="titulo-andamento"><div class="linha"><h2 id="titulo-andamento">Acompanhamento</h2><button id="cancelar" type="button" disabled>Parar operação</button></div><p id="status" role="status" aria-live="polite">Carregando configurações…</p><p id="resumo"></p><pre id="logs" aria-label="Registro da operação"></pre></section>
   </main>
   <footer><span>Nunes Enxovais · Automações internas</span><span>Desenvolvido por <a class="assinatura" href="https://github.com/Gabriel2Mello" target="_blank" rel="noopener noreferrer" aria-label="g2mello no GitHub">g2me<span class="traco">l</span><span class="traco">l</span>o</a></span></footer>
 </body>

@@ -6,13 +6,15 @@ import json
 import os
 from pathlib import Path
 import secrets
+import sys
 import tempfile
 from threading import Event, RLock, Thread
 import time
 
-from integracao_hub import MedidorAbertura, atender_integracao, executar_interface
+from integracao_hub import MedidorAbertura, atender_integracao, IntegracaoLocal, ConflitoAplicacao
 from operacoes import caminhos_ambiente, executar, preparar
 from sincronizar_estatisticas import Sincronizador
+from caminhos_desktop import pasta_dados, recursos, ler_tema, salvar_tema, vinculo_central
 
 RAIZ = Path(__file__).resolve().parent
 
@@ -22,7 +24,12 @@ class Servidor(ThreadingHTTPServer):
     TOLERANCIA = 5
     LIMITE_INICIAL = 120
 
-    def __init__(self):
+    def __init__(self, *, modo_desktop=False):
+        self.modo_desktop = modo_desktop
+        self.desktop = None
+        self.finalizado = Event()
+        self.configurando = False
+        self.sincronizador = None
         self.token = secrets.token_urlsafe(32)
         self.mutex = RLock()
         self.paginas = {}
@@ -36,7 +43,8 @@ class Servidor(ThreadingHTTPServer):
         self.resultado = None
         self.acao = ''
         self.versao = 0
-        self.arquivo_preferencias = RAIZ / '.local' / 'preferencias.json'
+        self.dados = pasta_dados(RAIZ)
+        self.arquivo_preferencias = self.dados / '.local' / 'preferencias.json'
         self.revisoes_preferencias = {}
         super().__init__(('127.0.0.1', 0), Handler)
         self.origem = f'http://127.0.0.1:{self.server_port}'
@@ -48,7 +56,7 @@ class Servidor(ThreadingHTTPServer):
 
     def configuracao(self):
         with self.mutex:
-            destino = str(RAIZ / 'notas')
+            destino = str(self.dados / 'notas')
             try:
                 dados = json.loads(self.arquivo_preferencias.read_text(encoding='utf-8'))
             except FileNotFoundError:
@@ -57,11 +65,8 @@ class Servidor(ThreadingHTTPServer):
                 if not isinstance(dados, dict):
                     raise ValueError('Preferências inválidas. Confira .local/preferencias.json.')
                 destino = self.validar_destino(dados.get('destino'))
-            try:
-                notas = (RAIZ / 'notas.txt').read_text(encoding='utf-8-sig')
-            except OSError:
-                notas = ''
-            return dict(notas=notas, caminhos=caminhos_ambiente(), destino=destino)
+            # A interface recebe notas digitadas; notas.txt pertence ao console.
+            return dict(notas='', caminhos=caminhos_ambiente(), destino=destino)
 
     @staticmethod
     def validar_destino(destino):
@@ -104,7 +109,7 @@ class Servidor(ThreadingHTTPServer):
 
     def iniciar(self, dados):
         with self.mutex:
-            if self.ocupado or self.encerrando:
+            if self.ocupado or self.encerrando or self.configurando:
                 raise ValueError('Aguarde o término da operação atual.')
             acao = dados.get('acao')
             if acao not in ('buscar', 'mover'):
@@ -166,6 +171,8 @@ class Servidor(ThreadingHTTPServer):
                 Thread(target=self.shutdown, daemon=True).start()
 
     def service_actions(self):
+        if self.modo_desktop:
+            return
         with self.mutex:
             limite = self.TOLERANCIA if self.teve_pagina else self.LIMITE_INICIAL
             if not self.paginas and time.monotonic() - self.sem_paginas_desde >= limite:
@@ -231,6 +238,9 @@ class Handler(BaseHTTPRequestHandler):
             self.server.fechar_pagina(pagina, evento)
 
     def do_GET(self):
+        from desktop_notas import atender_ativacao
+        if atender_ativacao(self):
+            return
         if atender_integracao(self):
             return
         if not self.host_valido():
@@ -250,32 +260,42 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self.json(404, {'erro': 'Recurso não encontrado.'})
         elif self.path == '/':
-            html = (RAIZ / 'web/index.html').read_text(encoding='utf-8').replace('{{TOKEN}}', self.server.token)
+            html = (recursos() / 'web/index.html').read_text(encoding='utf-8')
+            html = (html.replace('{{TOKEN}}', self.server.token)
+                    .replace('{{DESKTOP}}', '1' if self.server.modo_desktop else '0')
+                    .replace('{{TEMA}}', ler_tema() if self.server.modo_desktop else ''))
             self.responder(200, html.encode(), 'text/html; charset=utf-8')
         else:
-            recursos = {'/notas.css': ('web/notas.css', 'text/css; charset=utf-8'),
+            arquivos = {'/notas.css': ('web/notas.css', 'text/css; charset=utf-8'),
                         '/notas.js': ('web/notas.js', 'text/javascript; charset=utf-8'),
                         '/nunes-tema.js': ('web/nunes-tema.js', 'text/javascript; charset=utf-8'),
                         '/nunes-assinatura.css': ('web/nunes-assinatura.css', 'text/css; charset=utf-8'),
                         '/icone.svg': ('icons/icone.svg', 'image/svg+xml'),
                         '/favicon.ico': ('icons/icone.ico', 'image/x-icon')}
-            if self.path in recursos:
-                arquivo, tipo = recursos[self.path]
-                self.responder(200, (RAIZ / arquivo).read_bytes(), tipo)
+            if self.path in arquivos:
+                arquivo, tipo = arquivos[self.path]
+                self.responder(200, (recursos() / arquivo).read_bytes(), tipo)
             else:
                 self.json(404, {'erro': 'Recurso não encontrado.'})
 
     def do_POST(self):
+        from desktop_notas import atender_ativacao
+        if atender_ativacao(self):
+            return
         if atender_integracao(self):
             return
         try:
-            tamanho = int(self.headers.get('Content-Length', '0'))
+            tamanhos = self.headers.get_all('Content-Length') or []
+            if (len(tamanhos) != 1 or not tamanhos[0].isascii() or not tamanhos[0].isdigit()
+                    or len(tamanhos[0]) > 5 or self.headers.get_all('Transfer-Encoding')):
+                raise ValueError('Requisição inválida.')
+            tamanho = int(tamanhos[0])
             if not 0 < tamanho <= 65536:
                 raise ValueError('Requisição inválida.')
             corpo = self.rfile.read(tamanho)
             # Consumir o corpo limitado antes de responder evita um reset TCP no Windows.
             if (not self.autorizado() or self.headers.get_all('Origin') != [self.server.origem]
-                    or self.headers.get('Content-Type') != 'application/json'):
+                    or self.headers.get_all('Content-Type') != ['application/json']):
                 self.json(403, {'erro': 'Requisição não permitida. Reabra a ferramenta.'})
                 return
             if tamanho > 32768:
@@ -283,7 +303,16 @@ class Handler(BaseHTTPRequestHandler):
             dados = json.loads(corpo)
             if not isinstance(dados, dict):
                 raise ValueError('Requisição inválida.')
-            if self.path == '/api/iniciar':
+            if self.path == '/api/tema' and self.server.modo_desktop:
+                if set(dados) != {'tema'}:
+                    raise ValueError('Preferência de tema inválida.')
+                salvar_tema(dados.get('tema'))
+            elif self.path == '/api/escolher-pasta' and self.server.desktop is not None:
+                if set(dados) != {'campo'} or not isinstance(dados['campo'], str):
+                    raise ValueError('Pedido de pasta inválido.')
+                self.json(200, self.server.desktop.escolher_pasta(dados['campo']))
+                return
+            elif self.path == '/api/iniciar':
                 self.server.iniciar(dados)
             elif self.path == '/api/configuracao':
                 self.server.salvar_configuracao(dados)
@@ -309,21 +338,71 @@ class Handler(BaseHTTPRequestHandler):
 def main(integracao):
     with MedidorAbertura('find-move-nfe') as medidor, ExitStack() as recursos:
         with medidor.etapa('servidor_e_estado'):
-            servidor = Servidor()
+            servidor = Servidor(modo_desktop=True)
         try:
             with medidor.etapa('sincronizacao'):
-                recursos.enter_context(Sincronizador(relatar=servidor.relatar))
+                vinculo = vinculo_central()
+                if vinculo is None or vinculo.is_file():
+                    servidor.sincronizador = recursos.enter_context(
+                        Sincronizador(relatar=servidor.relatar, arquivo=vinculo))
             with medidor.etapa('publicacao'):
+                integracao.registro['desktop'] = 1
                 integracao.publicar(servidor, servidor.encerrar, servidor.situacao)
-            servidor.serve_forever(poll_interval=.2)
+            from desktop_notas import executar as executar_desktop
+            executar_desktop(servidor, recursos.close)
         except KeyboardInterrupt:
             servidor.cancelar.set()
+        except Exception as erro:
+            integracao.registrar_falha(erro)
+            informar_falha(f'Não foi possível manter a janela ({type(erro).__name__}). Confira o ambiente desktop e WebView2.')
+            return 1
         finally:
-            servidor.server_close()
+            servidor.encerrar()
             if servidor.worker is not None:
                 servidor.worker.join()
+            recursos.close()
+            if servidor.sincronizador is not None and servidor.sincronizador.worker is not None:
+                servidor.sincronizador.worker.join()
+            servidor.server_close()
     return 0
 
 
+def informar_falha(mensagem):
+    if sys.platform == 'win32':
+        import ctypes
+        ctypes.windll.user32.MessageBoxW(None, mensagem, 'Busca e Move Notas', 0x10)
+    else:
+        print(mensagem, file=sys.stderr)
+
+
+def iniciar():
+    import argparse
+    from desktop_notas import APP_ID, NOME, ativar_existente
+    import desktop_windows
+    parser = argparse.ArgumentParser(description='Busca e Move Notas desktop')
+    parser.add_argument('--nunes-sem-navegador', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--criar-atalho', type=Path)
+    args = parser.parse_args()
+    try:
+        if args.criar_atalho:
+            desktop_windows.criar_atalho(args.criar_atalho.resolve(),
+                desktop_windows.comando_reabrir([], Path(__file__).resolve()), recursos() / 'icons/icone.ico',
+                app_id=APP_ID, descricao='Buscar DANFEs e XMLs ou organizar notas por ano e mês')
+            return 0
+        limite = time.monotonic() + 15
+        while True:
+            integracao = IntegracaoLocal('find-move-nfe', NOME, False, sem_navegador=True)
+            try:
+                with integracao:
+                    return main(integracao)
+            except ConflitoAplicacao:
+                if ativar_existente(integracao.caminho, espera=max(0, limite - time.monotonic())):
+                    return 0
+    except Exception as erro:
+        informar_falha(str(erro) if isinstance(erro, RuntimeError) else
+                       f'Não foi possível abrir Busca e Move Notas ({type(erro).__name__}). Confira a instalação.')
+        return 1
+
+
 if __name__ == '__main__':
-    raise SystemExit(executar_interface('find-move-nfe', 'Busca e Move Notas', False, main))
+    raise SystemExit(iniciar())
