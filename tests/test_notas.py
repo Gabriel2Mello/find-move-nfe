@@ -153,8 +153,13 @@ class TestServidor(unittest.TestCase):
         self.assertIn(self.servidor.token.encode(), html)
         self.assertIn(b'Gabriel2Mello', html)
         self.assertEqual(html.count(b'class="traco"'), 2)
-        for recurso in ('/notas.css', '/nunes-assinatura.css', '/nunes-tema.js', '/notas.js', '/icone.svg', '/favicon.ico'):
+        for recurso in ('/notas.css', '/nunes-assinatura.css', '/nunes-tema.js', '/notas.js', '/icone.svg', '/favicon.ico',
+                        '/icons/tema-lua.svg', '/icons/tema-lua-sol.svg'):
             self.assertEqual(self.pedido('GET', recurso)[0], 200)
+        for nome in ('tema-lua.svg', 'tema-lua-sol.svg'):
+            self.assertEqual(self.pedido('GET', '/icons/' + nome)[1],
+                             (Path(__file__).resolve().parents[1] / 'icons' / nome).read_bytes())
+        self.assertEqual(self.pedido('GET', '/icons/../notas.py')[0], 404)
         self.assertEqual(self.pedido('GET', '/../../notas.py')[0], 404)
         self.assertLess(html.index(b'/nunes-tema.js'), html.index(b'/notas.js'))
         conexao = http.client.HTTPConnection('127.0.0.1', self.servidor.server_port, timeout=3)

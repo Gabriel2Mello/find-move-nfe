@@ -13,6 +13,7 @@ import time
 
 from integracao_hub import MedidorAbertura, atender_integracao, IntegracaoLocal, ConflitoAplicacao
 from operacoes import caminhos_ambiente, executar, preparar
+from limpeza_copias import preparar_limpeza, executar_limpeza, diretorio
 from sincronizar_estatisticas import Sincronizador
 from caminhos_desktop import pasta_dados, recursos, ler_tema, salvar_tema, vinculo_central
 
@@ -41,6 +42,7 @@ class Servidor(ThreadingHTTPServer):
         self.worker = None
         self.logs = deque(maxlen=300)
         self.resultado = None
+        self.limpeza_pendente = None
         self.acao = ''
         self.versao = 0
         self.dados = pasta_dados(RAIZ)
@@ -83,6 +85,8 @@ class Servidor(ThreadingHTTPServer):
             raise ValueError('Revisão de preferências inválida.')
         with self.mutex:
             # Um envio antigo pode chegar depois do keepalive ao fechar a aba.
+            if self.ocupado and self.acao == 'limpar':
+                raise ValueError('Aguarde a limpeza antes de alterar a pasta de cópias.')
             if pagina and revisao <= self.revisoes_preferencias.get(pagina, -1):
                 return
             self.arquivo_preferencias.parent.mkdir(parents=True, exist_ok=True)
@@ -115,6 +119,7 @@ class Servidor(ThreadingHTTPServer):
             if acao not in ('buscar', 'mover'):
                 raise ValueError('Ação inválida.')
             numeros, pastas, destino = preparar(dados.get('notas'), dados.get('caminhos'), dados.get('destino'))
+            self.limpeza_pendente = None
             self.ocupado = True
             self.cancelar.clear()
             self.logs.clear()
@@ -123,6 +128,70 @@ class Servidor(ThreadingHTTPServer):
             self.versao += 1
             self.worker = Thread(target=self.trabalhar, args=(acao, numeros, pastas, destino))
             self.worker.start()
+
+    def preparar_limpeza(self, caminhos):
+        if (not isinstance(caminhos, list) or len(caminhos) != 4
+                or any(not isinstance(c, str) or len(c) > 4096 or '\x00' in c for c in caminhos)):
+            raise ValueError('Pastas de origem inválidas.')
+        with self.mutex:
+            if self.ocupado or self.encerrando or self.configurando:
+                raise ValueError('Aguarde o término da operação atual.')
+            self.configurando = True
+            self.limpeza_pendente = None
+        try:
+            configurado = self.configuracao()['destino']
+            plano = preparar_limpeza(configurado, caminhos + caminhos_ambiente(),
+                                     [RAIZ, recursos(), self.dados, Path(sys.executable).parent, Path.home()])
+            confirmacao = secrets.token_urlsafe(32)
+            with self.mutex:
+                if self.encerrando or self.configuracao()['destino'] != configurado:
+                    raise ValueError('O destino ou o estado da aplicação mudou. Prepare a limpeza novamente.')
+                self.limpeza_pendente = (confirmacao, configurado, plano)
+            return dict(confirmacao=confirmacao, destino=str(plano.destino), quantidade=len(plano.arquivos))
+        finally:
+            with self.mutex:
+                self.configurando = False
+
+    def iniciar_limpeza(self, confirmacao):
+        with self.mutex:
+            pendente = self.limpeza_pendente
+            if (not isinstance(confirmacao, str) or pendente is None
+                    or not secrets.compare_digest(confirmacao.encode(), pendente[0].encode())):
+                raise ValueError('Confirmação de limpeza inválida ou já utilizada.')
+            self.limpeza_pendente = None
+            _, configurado, plano = pendente
+            if self.ocupado or self.encerrando or self.configurando:
+                raise ValueError('Aguarde o término da operação atual.')
+            self.conferir_destino_limpeza(configurado, plano)
+            self.ocupado = True
+            self.cancelar.clear()
+            self.logs.clear()
+            self.resultado = None
+            self.acao = 'limpar'
+            self.versao += 1
+            self.worker = Thread(target=self.trabalhar_limpeza, args=(configurado, plano))
+            self.worker.start()
+
+    def conferir_destino_limpeza(self, configurado, plano):
+        if (self.configuracao()['destino'] != configurado
+                or Path(configurado).resolve() != plano.destino
+                or diretorio(plano.destino) != plano.identidade):
+            raise ValueError('A pasta de cópias mudou; prepare a limpeza novamente.')
+
+    def trabalhar_limpeza(self, configurado, plano):
+        try:
+            resultado = executar_limpeza(plano, cancelar=self.cancelar, relatar=self.relatar,
+                conferir_configuracao=lambda: self.conferir_destino_limpeza(configurado, plano))
+        except Exception as erro:
+            self.relatar(f'Limpeza interrompida: {erro}')
+            resultado = {'erro': str(erro)}
+        resultado['limpeza_id'] = secrets.token_hex(16)
+        with self.mutex:
+            self.resultado = resultado
+            self.ocupado = False
+            self.versao += 1
+            if self.encerrando:
+                Thread(target=self.shutdown, daemon=True).start()
 
     def trabalhar(self, acao, numeros, pastas, destino):
         try:
@@ -271,6 +340,8 @@ class Handler(BaseHTTPRequestHandler):
                         '/nunes-tema.js': ('web/nunes-tema.js', 'text/javascript; charset=utf-8'),
                         '/nunes-assinatura.css': ('web/nunes-assinatura.css', 'text/css; charset=utf-8'),
                         '/icone.svg': ('icons/icone.svg', 'image/svg+xml'),
+                        '/icons/tema-lua.svg': ('icons/tema-lua.svg', 'image/svg+xml'),
+                        '/icons/tema-lua-sol.svg': ('icons/tema-lua-sol.svg', 'image/svg+xml'),
                         '/favicon.ico': ('icons/icone.ico', 'image/x-icon')}
             if self.path in arquivos:
                 arquivo, tipo = arquivos[self.path]
@@ -312,8 +383,22 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError('Pedido de pasta inválido.')
                 self.json(200, self.server.desktop.escolher_pasta(dados['campo']))
                 return
+            elif self.path == '/api/abrir-pasta' and self.server.desktop is not None:
+                if (set(dados) != {'campo', 'pasta'} or not isinstance(dados['campo'], str)
+                        or not isinstance(dados['pasta'], str)):
+                    raise ValueError('Pedido de abertura de pasta inválido.')
+                self.server.desktop.abrir_pasta(dados['campo'], dados['pasta'])
             elif self.path == '/api/iniciar':
                 self.server.iniciar(dados)
+            elif self.path == '/api/preparar-limpeza':
+                if set(dados) != {'caminhos'}:
+                    raise ValueError('Pedido de limpeza inválido.')
+                self.json(200, self.server.preparar_limpeza(dados['caminhos']))
+                return
+            elif self.path == '/api/limpar':
+                if set(dados) != {'confirmacao'}:
+                    raise ValueError('Pedido de limpeza inválido.')
+                self.server.iniciar_limpeza(dados['confirmacao'])
             elif self.path == '/api/configuracao':
                 self.server.salvar_configuracao(dados)
             elif self.path == '/api/cancelar':

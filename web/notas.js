@@ -6,13 +6,37 @@ const pagina = crypto.randomUUID(), presenca = new AbortController();
 let ocupado = false, encerrado = false, carregado = false, enviando = false, saindo = false;
 let conectado = false, inicioIncerto = false, selecionando = false, encerrando = false;
 let geracaoInicio = 0;
+let ultimaLimpezaAplicada = '';
 let assinaturaEstado = '', versaoEstado = -1, destinoSalvo = null, revisaoDestino = 0, salvamentosDestino = 0;
 const destinosPendentes = new Set();
+function atualizarContagemNotas() {
+  const numeros = $('notas').value.split(/[\s,;]+/)
+    .filter(numero => /^[0-9]{1,4}$/.test(numero))
+    .map(numero => numero.padStart(4, '0'));
+  const texto = 'Contagem: ' + new Set(numeros).size;
+  if ($('contagem-notas').textContent !== texto) $('contagem-notas').textContent = texto;
+}
+$('notas').addEventListener('input', atualizarContagemNotas);
+atualizarContagemNotas();
 const dicaDestino = $('dica-destino');
 for (const evento of ['mouseenter', 'focusin']) dicaDestino.addEventListener(evento, () => {delete dicaDestino.dataset.fechada;});
 window.addEventListener('keydown', evento => {
-  if (evento.key === 'Escape') dicaDestino.dataset.fechada = 'true';
+  if (evento.key === 'Escape') {
+    dicaDestino.dataset.fechada = 'true';
+    $('configuracoes').open = false;
+  }
 });
+function fecharConfiguracoesFora(evento) {
+  const menu = $('configuracoes');
+  if (menu.open && !menu.contains(evento.target)) menu.open = false;
+}
+window.addEventListener('pointerdown', fecharConfiguracoesFora, true);
+window.addEventListener('focusin', fecharConfiguracoesFora);
+$('ajuda-acoes').addEventListener('click', () => {
+  $('configuracoes').open = false;
+  if (!$('dialogo-acoes').open) $('dialogo-acoes').showModal();
+});
+$('fechar-ajuda').addEventListener('click', () => $('dialogo-acoes').close());
 function lerTemaLegado() {
   const valido = valor => ['claro','escuro'].includes(valor);
   try {
@@ -30,6 +54,7 @@ if (['claro','escuro'].includes(temaSalvo)) tema.aplicar(temaSalvo, true);
 else if (desktop && !temaLegado) tema.aplicar('claro');
 let salvamentoTema = Promise.resolve();
 $('tema').addEventListener('click', () => {
+  document.documentElement.dataset.temaAnimado = '1';
   if (!desktop) return;
   const preferencia = document.documentElement.dataset.tema;
   // Mantém a ordem das gravações mesmo em cliques rápidos.
@@ -42,7 +67,7 @@ $('tema').addEventListener('click', () => {
 function avisar(texto, erro = false) {$('status').textContent = texto; $('status').classList.toggle('erro', erro);}
 function botoes() {
   const bloqueado = !carregado || !conectado || ocupado || enviando || inicioIncerto || selecionando || encerrando || encerrado;
-  $('buscar').disabled = $('mover').disabled = bloqueado;
+  $('buscar').disabled = $('mover').disabled = $('limpar').disabled = bloqueado;
   $('cancelar').disabled = !conectado || !ocupado || encerrando || encerrado;
   $('encerrar').disabled = selecionando || encerrando || encerrado;
   for (const campo of document.querySelectorAll('input,textarea')) campo.disabled = !carregado || ocupado || enviando || inicioIncerto || selecionando || encerrando || encerrado;
@@ -50,6 +75,7 @@ function botoes() {
     const recuperarDestino = desktop && botao.dataset.campo === 'destino' && !carregado && conectado && !ocupado && !selecionando && !encerrando && !encerrado;
     botao.disabled = bloqueado && !recuperarDestino;
   }
+  for (const botao of document.querySelectorAll('[data-abrir]')) botao.disabled = bloqueado;
 }
 async function pedir(rota, dados, keepalive = false, semPrazo = false) {
   const resposta = await fetch(rota, {method:dados ? 'POST' : 'GET', cache:'no-store', keepalive, signal:semPrazo ? undefined : AbortSignal.timeout(10000), headers:{'X-Notas-Token':token, ...(dados ? {'Content-Type':'application/json'} : {})}, body:dados ? JSON.stringify(dados) : undefined});
@@ -102,6 +128,18 @@ for (const botao of document.querySelectorAll('[data-campo]')) {
   botao.hidden = !desktop;
   botao.addEventListener('click', () => escolherPasta(botao.dataset.campo));
 }
+async function abrirPasta(campo) {
+  if (!desktop || !carregado || !conectado || selecionando || ocupado || enviando || inicioIncerto || encerrando || encerrado) return;
+  const pasta = $(campo).value.trim();
+  selecionando = true; botoes();
+  try {await pedir('/api/abrir-pasta', {campo, pasta});}
+  catch (erro) {avisar('Não foi possível abrir a pasta: ' + erro.message, true);}
+  finally {selecionando = false; botoes();}
+}
+for (const botao of document.querySelectorAll('[data-abrir]')) {
+  botao.hidden = !desktop;
+  botao.addEventListener('click', () => abrirPasta(botao.dataset.abrir));
+}
 function receber(estado) {
   if (!estado || typeof estado.ocupado !== 'boolean' || typeof estado.encerrando !== 'boolean' || !Array.isArray(estado.logs)) return false;
   // GET e presença podem terminar em outra ordem. Nunca reaplicar um estado antigo.
@@ -116,12 +154,25 @@ function receber(estado) {
   assinaturaEstado = assinatura;
   ocupado = estado.ocupado;
   if (estado.encerrando) {encerrado = true; avisar('Encerrando com segurança. O arquivo em andamento será concluído.');}
-  else if (ocupado) avisar(estado.acao === 'buscar' ? 'Buscando e copiando notas…' : 'Movendo e organizando notas…');
+  else if (ocupado) avisar(estado.acao === 'limpar' ? 'Limpando a pasta de cópias…' : estado.acao === 'buscar' ? 'Buscando e copiando notas…' : 'Movendo e organizando notas…');
   else if (estado.resultado) avisar(estado.resultado.erro ? 'A operação encontrou um erro.' : estado.resultado.cancelado ? 'Operação interrompida. Os arquivos concluídos foram preservados.' : estado.resultado.erros ? 'Operação concluída com erros. Confira o registro.' : 'Operação concluída.', !!(estado.resultado.erro || estado.resultado.erros));
-  else avisar('Pronta para buscar ou mover notas.');
+  else avisar('Pronta para buscar, mover ou limpar cópias.');
   $('logs').textContent = estado.logs.join('\n');
   const r = estado.resultado;
-  $('resumo').textContent = r && !r.erro ? `${r.encontrados} arquivo(s) encontrado(s) · ${r.concluidos} concluído(s) · ${r.ignorados} já existente(s) · ${r.erros} erro(s)${r.nao_encontradas.length ? ' · Notas não encontradas: ' + r.nao_encontradas.join(', ') : ''}` : '';
+  $('rotulo-concluidos').textContent = estado.acao === 'limpar' ? 'Excluídos' : 'Concluídos';
+  $('rotulo-ignorados').textContent = estado.acao === 'limpar' ? 'Preservados' : 'Já existentes';
+  if (estado.acao === 'limpar' && !ocupado && r && !r.erro && !r.erros && !r.cancelado
+      && r.limpeza_id && r.limpeza_id !== ultimaLimpezaAplicada) {
+    ultimaLimpezaAplicada = r.limpeza_id;
+    $('notas').value = '';
+    atualizarContagemNotas();
+  }
+  const temResumo = !!r && !r.erro;
+  $('resumo').hidden = !temResumo;
+  for (const campo of ['encontrados','concluidos','ignorados','erros']) {
+    $('total-' + campo).textContent = temResumo ? r[campo] : '';
+  }
+  $('notas-nao-encontradas').textContent = temResumo && r.nao_encontradas.length ? 'Notas não encontradas: ' + r.nao_encontradas.join(', ') : '';
   botoes();
   return true;
 }
@@ -169,6 +220,35 @@ async function recuperarInicio() {
 }
 $('buscar').addEventListener('click', () => iniciar('buscar'));
 $('mover').addEventListener('click', () => iniciar('mover'));
+async function limparCopias() {
+  if (!carregado || !conectado || ocupado || enviando || inicioIncerto || selecionando || encerrando || encerrado) return;
+  enviando = true; botoes();
+  try {
+    await Promise.all([...destinosPendentes]);
+    if (!await salvarDestino()) return;
+    const plano = await pedir('/api/preparar-limpeza', {caminhos:[0,1,2,3].map(i => $('caminho-' + i).value)});
+    if (!Number.isInteger(plano?.quantidade) || plano.quantidade < 0 || typeof plano.destino !== 'string'
+        || !plano.destino || typeof plano.confirmacao !== 'string' || !plano.confirmacao) throw Error('Preparação da limpeza inválida.');
+    if (!plano.quantidade) {
+      $('notas').value = ''; atualizarContagemNotas();
+      avisar('Não há arquivos para excluir. O campo Notas foi limpo.');
+      return;
+    }
+    if (!confirm(`Excluir permanentemente ${plano.quantidade} arquivo(s) da pasta:\n${plano.destino}\n\nSubpastas e links serão preservados. Os arquivos não irão para a Lixeira. Ao concluir sem erros, o campo Notas também será esvaziado.`)) return;
+    geracaoInicio++;
+    inicioIncerto = true;
+    await pedir('/api/limpar', {confirmacao:plano.confirmacao});
+  } catch (erro) {avisar('Não foi possível confirmar a limpeza: ' + erro.message, true);}
+  finally {
+    enviando = false;
+    if (inicioIncerto) {
+      await consultarEstado();
+      if (inicioIncerto) recuperarInicio();
+    }
+    botoes();
+  }
+}
+$('limpar').addEventListener('click', limparCopias);
 $('cancelar').addEventListener('click', async () => {try {await pedir('/api/cancelar', {}); avisar('Parada solicitada. Concluindo o arquivo atual…');} catch (erro) {avisar(erro.message, true);}});
 $('encerrar').addEventListener('click', async () => {
   if (encerrado || encerrando || selecionando) return;
@@ -207,6 +287,7 @@ window.addEventListener('pageshow', evento => {if (evento.persisted) location.re
     try {
       const config = await pedir('/api/configuracao');
       $('notas').value = ''; $('destino').value = destinoSalvo = config.destino;
+      atualizarContagemNotas();
       config.caminhos.forEach((c,i) => $('caminho-' + i).value = c);
       carregado = true;
     } catch (erro) {

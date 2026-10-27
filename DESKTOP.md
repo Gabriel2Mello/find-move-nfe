@@ -43,11 +43,20 @@ por ano/mês da modificação, excluindo pastas numéricas da varredura. Os filt
 busca na raiz/ano atual, preenchimento de zeros, conflitos concorrentes, cópia
 verificada e preservação de destinos seguem o README e o executor existente.
 
+**Limpar** remove permanentemente os arquivos da raiz da pasta de cópias após
+confirmar destino e quantidade, preservando subpastas e links. Ao concluir sem
+erros ou interrupção, esvazia Notas; sem arquivos elegíveis, limpa apenas Notas
+sem confirmação. Consulte as proteções e limites da limpeza no README.
+
 O destino é persistido em `.local/preferencias.json`, como antes. Campo editável
 e botão **Alterar** apontam à mesma preferência. Cancelar o diálogo mantém a
 seleção anterior. As quatro origens vêm das mesmas variáveis de ambiente;
 escolher ou editar uma origem só ajusta esta janela, sem gravar variáveis ou
 preferências de origem. A janela mantém notas e resumo durante atualizações.
+À direita de cada **Alterar**, **Abrir** abre no Explorador a pasta atualmente
+informada naquele campo, inclusive uma edição manual. Pastas inexistentes ou
+inacessíveis geram um aviso, sem criar diretórios. A abertura não inicia busca
+ou movimentação nem altera a seleção das pastas.
 Preferência inválida é informada e pode ser substituída explicitamente pelo
 seletor do destino. A dica de persistência aparece na tooltip de **Salvar cópias em**,
 por mouse ou foco, e fecha com Escape. A lista de notas começa vazia no web/desktop;

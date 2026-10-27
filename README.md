@@ -1,6 +1,6 @@
 # Busca e Move Notas
 
-Uma aplicação Nunes com duas ações: **Buscar** copia DANFEs e XMLs; **Mover** organiza os arquivos na própria origem, em pastas de ano e mês. Abra pelo **Hub Nunes** ou por `Abrir Busca e Move Notas.cmd`.
+Uma aplicação Nunes com três ações: **Buscar** copia DANFEs e XMLs; **Mover** organiza os arquivos na própria origem, em pastas de ano e mês; **Limpar** exclui os arquivos da pasta de cópias e esvazia Notas. Abra pelo **Hub Nunes** ou por `Abrir Busca e Move Notas.cmd`.
 
 **Desktop Windows:** `notas.py` agora abre uma janela própria WebView2. Consulte
 [DESKTOP.md](DESKTOP.md) para preparar `.venv-desktop` x64, gerar atalho/pacote,
@@ -8,9 +8,28 @@ migrar dados e integrar o executável ao Hub. A segunda abertura restaura a mesm
 janela, sem perder campos ou repetir operação. `find.py` e `move.py` conservam
 o modo console e o ambiente anterior.
 
-Informe as notas na interface e escolha uma ação. A lista começa vazia no web/desktop; a interface não lê nem altera `notas.txt`. Somente as entradas console `find.py` e `move.py` carregam esse arquivo. São aceitos números de até quatro dígitos, separados por espaço, linha, vírgula ou ponto e vírgula. Números menores são completados com zeros. A identificação nos nomes dos arquivos preserva as posições dos scripts originais: quatro dígitos antes do dígito verificador do PDF e o trecho correspondente na chave do XML. Somente arquivos iniciados por `nfe`, sem distinção de maiúsculas, com extensão PDF ou XML são considerados.
+Informe as notas na interface e escolha uma ação. A lista começa vazia no web/desktop; a interface não lê nem altera `notas.txt`. Somente as entradas console `find.py` e `move.py` carregam esse arquivo. São aceitos números de até quatro dígitos, separados por espaço, linha, vírgula ou ponto e vírgula. Números menores são completados com zeros. A identificação nos nomes dos arquivos preserva as posições dos scripts originais: quatro dígitos antes do dígito verificador do PDF e o trecho correspondente na chave do XML. Buscar e Mover consideram somente arquivos iniciados por `nfe`, sem distinção de maiúsculas, com extensão PDF ou XML.
 
-As origens vêm de `CAMINHO_DANFE_MATRIZ`, `CAMINHO_DANFE_FILIAL`, `CAMINHO_XML_MATRIZ` e `CAMINHO_XML_FILIAL`. Podem ser ajustadas nesta aba em **Pastas de origem**. A busca percorre a raiz e as subpastas do ano atual e copia para `notas/` por padrão. A movimentação não entra em pastas com nomes numéricos; usa a **data de modificação do arquivo**, não a data de emissão, para organizar em `ANO/MÊS` na origem. Nenhuma ação é executada ao abrir a interface.
+**Limpar**, à direita de Mover, independe da lista de notas. A aplicação salva o
+destino editado e prepara a limpeza da pasta configurada em **Salvar cópias em**.
+Havendo arquivos, a confirmação mostra o caminho e a quantidade. A exclusão é
+permanente, sem Lixeira, e abrange todos os tipos de arquivo diretamente nessa
+pasta. Subpastas, links e pontos de redirecionamento são preservados. Se não
+houver arquivos elegíveis, limpa somente Notas e a contagem, sem confirmação.
+Ao concluir a exclusão sem erros ou interrupção, também limpa Notas. Cancelar
+a confirmação ou ocorrer falha/interrupção preserva a lista.
+
+A limpeza recusa origens, raiz de disco/compartilhamento e pastas que contenham
+a instalação ou os dados da aplicação. Usa uma confirmação de uso único e
+exclui somente os arquivos examinados: arquivos novos ou alterados depois da
+preparação são preservados. Mantenha essa pasta estável durante a operação;
+as conferências não bloqueiam alterações de outros programas entre a última
+verificação e a exclusão. Falhas não recuperam arquivos já excluídos. O registro
+e os cartões mostram exclusões, preservações e erros; Parar/Encerrar aguardam
+o arquivo em andamento. A limpeza não acrescenta métricas de busca/movimentação
+e não altera `notas.txt`.
+
+As origens vêm de `CAMINHO_DANFE_MATRIZ`, `CAMINHO_DANFE_FILIAL`, `CAMINHO_XML_MATRIZ` e `CAMINHO_XML_FILIAL`. Podem ser ajustadas em **Configurações → Pastas de origem**. A busca percorre a raiz e as subpastas do ano atual e copia para `notas/` por padrão. A movimentação não entra em pastas com nomes numéricos; usa a **data de modificação do arquivo**, não a data de emissão, para organizar em `ANO/MÊS` na origem. Nenhuma ação é executada ao abrir a interface.
 
 **Salvar cópias em** fica salvo para as próximas aberturas. A gravação acontece
 ao sair do campo, iniciar uma ação, encerrar pelo botão ou fechar a janela, sem
@@ -181,6 +200,27 @@ Execute `python -m unittest discover -s tests -v` e `node --test tests/test_nota
 Servidor em `127.0.0.1`, porta automática, token por execução, Host exato e validação de Origin nas ações. O servidor serve somente recursos explicitamente cadastrados. O processamento roda fora da requisição HTTP; a interface continua disponível durante a operação.
 
 ### Controle de tema compartilhado
+
+O layout segue a referência do Cofre NFe: cabeçalho compacto, fonte Segoe UI,
+preparação à esquerda e andamento/resultados à direita. O campo **Notas** tem
+dez linhas visíveis, altura fixa e contador discreto no canto inferior direito,
+sem fundo próprio. A contagem considera números válidos de até quatro dígitos,
+sem repetir notas equivalentes como `7` e `0007`. A coluna esquerda não tem
+rolagem própria. As descrições
+ficam em **Como funcionam as ações**, que abre uma ajuda fechável com **Fechar**
+ou Escape. Em janelas baixas, a tela inteira pode rolar; os resultados mantêm
+sua rolagem própria em duas colunas. Em telas estreitas as áreas se empilham.
+**Configurações**, no cabeçalho,
+reúne as quatro pastas de origem; o menu fecha com Escape, clique ou foco fora.
+O destino das cópias permanece junto das notas, e **Encerrar** fica no rodapé.
+
+O botão de tema usa os ícones locais de lua e lua/sol da Cofre, com transição
+de cores de 150 ms e rotação de 120 ms após troca manual. Movimento reduzido
+desativa os efeitos. A identidade e o ícone da aplicação continuam no azul
+petróleo aprovado; o neon das notas só aparece no campo vazio e sem foco.
+Os dois SVGs de tema são recursos locais explícitos no servidor e no spec
+do desktop. Reabra a aplicação Python para carregar o layout; executáveis
+existentes precisam ser reconstruídos.
 
 A interface usa a cópia local `web/nunes-tema.js`, versão **1.1.0**, cuja
 [fonte e contrato](../estrutura-nunes/identidade-visual/interfaces/README.md)

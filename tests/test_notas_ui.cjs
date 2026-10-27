@@ -10,11 +10,12 @@ function interfaceTeste(opcoes = {}) {
   let escritas = 0;
   const elemento = id => {
     if (!elementos.has(id)) elementos.set(id, {
-      texto:'', value:'', dataset:{}, tagName:id === 'tema' ? 'BUTTON' : 'INPUT', setAttribute(){}, disabled:false, classList:{toggle(){}},
+      texto:'', value:'', dataset:{}, atributos:{}, tagName:id === 'tema' ? 'BUTTON' : 'INPUT', setAttribute(nome, valor){this.atributos[nome]=valor;}, disabled:false, classList:{toggle(){}},
       eventos:new Map(), addEventListener(nome, fn){
         const anterior = this.eventos.get(nome);
         this.eventos.set(nome, anterior ? (...args)=>{anterior(...args); return fn(...args);} : fn);
       },
+      showModal(){this.open=true;}, close(){this.open=false;},
       set textContent(valor) {this.texto=valor; escritas++;},
       get textContent() {return this.texto;}
     });
@@ -136,7 +137,8 @@ test('conclusão atualiza uma vez e preserva o resultado enquanto ocioso', () =>
     encontrados:1,concluidos:1,ignorados:0,erros:0,nao_encontradas:[]}};
   ui.receber(fim);
   assert.equal(ui.elemento('status').textContent,'Operação concluída.');
-  assert.match(ui.elemento('resumo').textContent,/1 concluído/);
+  assert.equal(ui.elemento('resumo').hidden, false);
+  assert.equal(ui.elemento('total-concluidos').textContent, 1);
   const antes=ui.escritas();
   ui.receber(JSON.parse(JSON.stringify(fim)));
   assert.equal(ui.escritas(),antes);
@@ -153,7 +155,8 @@ test('resposta antiga de estado não recoloca Movendo após conclusão recebida 
   ui.receber(movendo);
   assert.equal(ui.elemento('status').textContent, 'Operação concluída.');
   assert.equal(ui.elemento('cancelar').disabled, true);
-  assert.match(ui.elemento('resumo').textContent, /1 concluído/);
+  assert.equal(ui.elemento('resumo').hidden, false);
+  assert.equal(ui.elemento('total-concluidos').textContent, 1);
   assert.equal(ui.elemento('logs').textContent, 'Movido: teste.pdf');
 });
 
@@ -382,4 +385,233 @@ test('tooltip do destino fecha com Escape e reabre por mouse ou foco', () => {
   ui.eventos.get('keydown')({key:'Escape'});
   dica.eventos.get('mouseenter')();
   assert.equal(dica.dataset.fechada, undefined);
+});
+
+test('configurações fecham por Escape, clique ou foco externo e preservam interação interna', () => {
+  const ui = interfaceTeste(), menu = ui.elemento('configuracoes');
+  const interno = ui.elemento('caminho-0'), externo = ui.elemento('notas');
+  menu.contains = alvo => alvo === interno || alvo === menu;
+  for (const evento of ['pointerdown', 'focusin']) {
+    menu.open = true;
+    ui.eventos.get(evento)({target:interno});
+    assert.equal(menu.open, true);
+    ui.eventos.get(evento)({target:menu});
+    assert.equal(menu.open, true);
+    ui.eventos.get(evento)({target:externo});
+    assert.equal(menu.open, false);
+  }
+  menu.open = true;
+  ui.eventos.get('keydown')({key:'Escape'});
+  assert.equal(menu.open, false);
+  assert.equal(ui.elemento('notas'), externo, 'fechar não substitui campos nem seu conteúdo');
+});
+
+test('efeito de tema começa apenas na troca manual e mantém nome acessível da próxima ação', async () => {
+  const ui = interfaceTeste({metas:{'notas-tema':'claro'}});
+  assert.equal(ui.avaliar('document.documentElement.dataset.temaAnimado'), undefined);
+  await ui.elemento('tema').eventos.get('click')();
+  assert.equal(ui.avaliar('document.documentElement.dataset.temaAnimado'), '1');
+  assert.equal(ui.avaliar('document.documentElement.dataset.tema'), 'escuro');
+  assert.equal(ui.elemento('tema').textContent, 'Tema claro');
+  assert.equal(ui.elemento('tema').atributos['aria-label'], 'Ativar tema claro');
+  await ui.elemento('tema').eventos.get('click')();
+  assert.equal(ui.avaliar('document.documentElement.dataset.tema'), 'claro');
+  assert.equal(ui.elemento('tema').textContent, 'Tema escuro');
+  assert.equal(ui.elemento('tema').atributos['aria-label'], 'Ativar tema escuro');
+});
+
+test('cartões refletem todos os totais e preservam notas não encontradas e registro', () => {
+  const ui = interfaceTeste();
+  const estado = {versao:1, ocupado:false, encerrando:false, acao:'buscar', logs:['Registro sintético'], resultado:{
+    encontrados:20, concluidos:17, ignorados:2, erros:1, nao_encontradas:['0007','0012']}};
+  ui.receber(estado);
+  assert.equal(ui.elemento('resumo').hidden, false);
+  for (const [campo, total] of Object.entries({encontrados:20, concluidos:17, ignorados:2, erros:1})) {
+    assert.equal(ui.elemento('total-' + campo).textContent, total);
+  }
+  assert.equal(ui.elemento('notas-nao-encontradas').textContent, 'Notas não encontradas: 0007, 0012');
+  assert.equal(ui.elemento('logs').textContent, 'Registro sintético');
+  ui.receber({...estado, versao:2, resultado:{...estado.resultado, encontrados:0, concluidos:0, ignorados:0, erros:0, nao_encontradas:[]}});
+  for (const campo of ['encontrados','concluidos','ignorados','erros']) assert.equal(ui.elemento('total-' + campo).textContent, 0);
+  assert.equal(ui.elemento('notas-nao-encontradas').textContent, '');
+  for (const resultado of [null, {erro:'Falha sintética'}]) {
+    ui.receber({...estado, versao:3, resultado});
+    assert.equal(ui.elemento('resumo').hidden, true);
+    assert.equal(ui.elemento('total-encontrados').textContent, '');
+    assert.equal(ui.elemento('notas-nao-encontradas').textContent, '');
+  }
+});
+
+test('ajuda abre e fecha sem alterar notas ou iniciar uma operação', () => {
+  const pedidos=[];
+  const ui=interfaceTeste({fetch:rota=>{pedidos.push(rota);return pendente();}});
+  ui.elemento('notas').value='1234\n5678';
+  ui.elemento('configuracoes').open=true;
+  ui.elemento('ajuda-acoes').eventos.get('click')();
+  assert.equal(ui.elemento('dialogo-acoes').open,true);
+  assert.equal(ui.elemento('configuracoes').open,false);
+  ui.elemento('fechar-ajuda').eventos.get('click')();
+  assert.equal(ui.elemento('dialogo-acoes').open,false);
+  assert.equal(ui.elemento('notas').value,'1234\n5678');
+  assert.equal(pedidos.includes('/api/iniciar'),false);
+});
+
+test('contador acompanha digitação, colagem e limpeza com notas válidas sem repetição', () => {
+  const pedidos=[];
+  const ui=interfaceTeste({fetch:rota=>{pedidos.push(rota);return pendente();}});
+  const campo=ui.elemento('notas'), contador=ui.elemento('contagem-notas');
+  assert.equal(contador.textContent,'Contagem: 0');
+  for (const [valor,total] of [
+    ['1',1], ['12',1], ['12, 7; 0007\n0012\t9999',3],
+    ['8098\r\n8402\n8403\n8404\n9593\n9594\n9595\n8440\n8441\n8405',10],
+    ['12345, texto, -1, 0, 0000, 25',2], [' \n\t,; ',0], ['',0]
+  ]) {
+    campo.value=valor;
+    campo.eventos.get('input')();
+    assert.equal(contador.textContent,'Contagem: '+total);
+  }
+  assert.equal(pedidos.includes('/api/iniciar'),false);
+});
+
+test('Abrir envia a pasta atual de cada campo sem alterar seleção ou executar operação', async () => {
+  const pedidos=[];
+  const ui=interfaceTeste({metas:{'notas-desktop':'1'},fetch:(rota,opcoes)=>{
+    if (rota!=='/api/abrir-pasta') return pendente();
+    pedidos.push(JSON.parse(opcoes.body));
+    return Promise.resolve(resposta({ok:true}));
+  }});
+  ui.avaliar("carregado=true; conectado=true; destinoSalvo='anterior';");
+  for (const campo of ['destino','caminho-0','caminho-1','caminho-2','caminho-3']) {
+    ui.elemento(campo).value='  C:\\Pasta editada '+campo+'  ';
+    await ui.avaliar("abrirPasta('"+campo+"')");
+    assert.deepEqual(pedidos.at(-1),{campo,pasta:'C:\\Pasta editada '+campo});
+    assert.equal(ui.elemento(campo).value,'  C:\\Pasta editada '+campo+'  ');
+  }
+  assert.equal(pedidos.length,5);
+  assert.equal(ui.avaliar('destinoSalvo'),'anterior');
+  assert.equal(ui.avaliar('selecionando'),false);
+});
+
+test('Abrir bloqueia cliques repetidos e informa falha liberando os controles', async () => {
+  let liberar;
+  let pedidos=0;
+  const ui=interfaceTeste({metas:{'notas-desktop':'1'},fetch:rota=>{
+    if (rota!=='/api/abrir-pasta') return pendente();
+    pedidos++;
+    return new Promise(resolve=>liberar=resolve);
+  }});
+  ui.avaliar('carregado=true; conectado=true;');
+  ui.elemento('destino').value='C:\\Pasta';
+  const abertura=ui.avaliar("abrirPasta('destino')");
+  assert.equal(ui.avaliar('selecionando'),true);
+  assert.equal(ui.elemento('buscar').disabled,true);
+  await ui.avaliar("abrirPasta('destino')");
+  assert.equal(pedidos,1);
+  liberar({ok:false,json:async()=>({erro:'Pasta indisponível.'})});
+  await abertura;
+  assert.match(ui.elemento('status').textContent,/Não foi possível abrir a pasta: Pasta indisponível/);
+  assert.equal(ui.avaliar('selecionando'),false);
+  assert.equal(ui.elemento('buscar').disabled,false);
+  const web=interfaceTeste();
+  web.avaliar('carregado=true; conectado=true;');
+  await web.avaliar("abrirPasta('destino')");
+  assert.equal(web.avaliar('selecionando'),false);
+});
+
+function prepararCampoLimpeza(ui) {
+  ui.avaliar("carregado=true; conectado=true; destinoSalvo='C:\\\\copias';");
+  ui.elemento('destino').value='C:\\copias';
+  ui.elemento('notas').value='1234\n5678';
+  ui.elemento('notas').eventos.get('input')();
+}
+const planoLimpeza={destino:'C:\\copias',quantidade:2,confirmacao:'confirmacao-sintetica'};
+const fimLimpeza={...estadoOcioso,versao:5,acao:'limpar',logs:['Excluído: teste.pdf'],resultado:{
+  encontrados:2,concluidos:2,ignorados:0,erros:0,cancelado:false,nao_encontradas:[],limpeza_id:'limpeza-1'}};
+
+test('Limpar com pasta vazia limpa somente Notas, sem confirmação nem exclusão', async () => {
+  const pedidos=[];
+  let confirmacoes=0;
+  const ui=interfaceTeste({confirm:()=>{confirmacoes++;return true;},fetch:async rota=>{
+    pedidos.push(rota);
+    return rota==='/api/preparar-limpeza' ? resposta({...planoLimpeza,quantidade:0}) : pendente();
+  }});
+  prepararCampoLimpeza(ui);
+  await ui.elemento('limpar').eventos.get('click')();
+  assert.equal(confirmacoes,0);
+  assert.equal(pedidos.includes('/api/limpar'),false);
+  assert.equal(ui.elemento('notas').value,'');
+  assert.equal(ui.elemento('contagem-notas').textContent,'Contagem: 0');
+});
+
+test('cancelar Limpar conserva notas, contagem e arquivos sem enviar execução', async () => {
+  const pedidos=[];
+  let mensagem='';
+  const ui=interfaceTeste({confirm:texto=>{mensagem=texto;return false;},fetch:async rota=>{
+    pedidos.push(rota);
+    return rota==='/api/preparar-limpeza' ? resposta(planoLimpeza) : pendente();
+  }});
+  prepararCampoLimpeza(ui);
+  await ui.elemento('limpar').eventos.get('click')();
+  assert.match(mensagem,/Excluir permanentemente 2 arquivo/);
+  assert.ok(mensagem.includes('C:\\copias'));
+  assert.equal(pedidos.includes('/api/limpar'),false);
+  assert.equal(ui.elemento('notas').value,'1234\n5678');
+  assert.equal(ui.elemento('contagem-notas').textContent,'Contagem: 2');
+});
+
+test('limpeza confirmada envia só autorização e limpa Notas uma vez após sucesso', async () => {
+  const pedidos=[];
+  const ui=interfaceTeste({fetch:async (rota,opcoes)=>{
+    if(rota==='/api/preparar-limpeza') return resposta(planoLimpeza);
+    if(rota==='/api/limpar') {pedidos.push(JSON.parse(opcoes.body));return resposta({ok:true});}
+    if(rota==='/api/estado') return resposta(fimLimpeza);
+    return pendente();
+  }});
+  prepararCampoLimpeza(ui);
+  await ui.elemento('limpar').eventos.get('click')();
+  assert.deepEqual(pedidos,[{confirmacao:'confirmacao-sintetica'}]);
+  assert.equal(ui.elemento('notas').value,'');
+  assert.equal(ui.elemento('contagem-notas').textContent,'Contagem: 0');
+  assert.equal(ui.elemento('rotulo-concluidos').textContent,'Excluídos');
+  ui.elemento('notas').value='9999';
+  ui.elemento('notas').eventos.get('input')();
+  ui.avaliar('conectado=false;');
+  ui.receber({...fimLimpeza,versao:6,logs:[...fimLimpeza.logs,'Estatística confirmada.']});
+  assert.equal(ui.elemento('notas').value,'9999','reconexão e novos logs não apagam uma nova edição');
+});
+
+test('limpeza com erro ou cancelamento preserva Notas e preparação inválida não as apaga', async () => {
+  for (const resultado of [{...fimLimpeza.resultado,erros:1},{...fimLimpeza.resultado,cancelado:true},{erro:'falha'}]) {
+    const ui=interfaceTeste();
+    prepararCampoLimpeza(ui);
+    ui.receber({...fimLimpeza,resultado});
+    assert.equal(ui.elemento('notas').value,'1234\n5678');
+  }
+  const ui=interfaceTeste({fetch:async rota=>rota==='/api/preparar-limpeza' ? resposta({ok:true}) : pendente()});
+  prepararCampoLimpeza(ui);
+  await ui.elemento('limpar').eventos.get('click')();
+  assert.equal(ui.elemento('notas').value,'1234\n5678');
+  assert.match(ui.elemento('status').textContent,/Preparação da limpeza inválida/);
+});
+
+test('resposta perdida da limpeza bloqueia repetição e reconcilia sem excluir novamente', async () => {
+  const esperas=[];
+  let inicios=0, falharEstado=true;
+  const ui=interfaceTeste({setTimeout:fn=>esperas.push(fn),fetch:async rota=>{
+    if(rota==='/api/preparar-limpeza') return resposta(planoLimpeza);
+    if(rota==='/api/limpar') {inicios++;throw Error('Resposta perdida.');}
+    if(rota==='/api/estado') {if(falharEstado) throw Error('Sem conexão.');return resposta(fimLimpeza);}
+    return pendente();
+  }});
+  prepararCampoLimpeza(ui);
+  await ui.elemento('limpar').eventos.get('click')();
+  assert.equal(ui.elemento('limpar').disabled,true);
+  await ui.elemento('limpar').eventos.get('click')();
+  assert.equal(inicios,1);
+  falharEstado=false;
+  await ui.avaliar('consultarEstado()');
+  assert.equal(ui.elemento('notas').value,'');
+  assert.equal(inicios,1);
+  ui.avaliar('saindo=true;');
+  esperas.forEach(fn=>fn());
 });

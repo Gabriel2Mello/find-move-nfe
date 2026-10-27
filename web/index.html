@@ -8,52 +8,81 @@
   <meta name="theme-color" content="#0E7490">
   <title>Busca e Move Notas · Nunes</title>
   <link rel="icon" href="/icone.svg" type="image/svg+xml">
+  <link rel="alternate icon" href="/favicon.ico">
   <link rel="stylesheet" href="/notas.css"><link rel="stylesheet" href="/nunes-assinatura.css"><script src="/nunes-tema.js" defer></script><script src="/notas.js" defer></script>
 </head>
 <body>
-  <header><div class="marca"><img src="/icone.svg" width="36" height="36" alt=""><div><h1>Busca e Move Notas</h1><p>Nunes Enxovais · Fiscal</p></div></div><div class="acoes"><button id="tema" type="button">Tema claro</button><button id="encerrar" type="button">Encerrar</button></div></header>
+  <header class="cabecalho">
+    <div class="marca"><img src="/icone.svg" width="32" height="32" alt=""><h1>Busca e Move Notas <span>· Nunes</span></h1></div>
+    <div class="controles-cabecalho">
+      <button id="tema" class="botao-icone" type="button" title="Alternar tema" aria-label="Ativar tema escuro">Tema escuro</button>
+      <details class="configuracoes" id="configuracoes">
+        <summary class="botao-icone" title="Configurações" aria-label="Configurações"><svg class="icone-controle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9m4 0h3M4 17h3m4 0h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></summary>
+        <div class="menu-configuracoes">
+          <h2>Pastas de origem</h2><p class="ajuda">Carregadas deste computador. Ajustes valem somente nesta janela.</p>
+          <label for="caminho-0">DANFE · Matriz</label><div class="campo-pasta"><input id="caminho-0" type="text" spellcheck="false"><button type="button" data-campo="caminho-0" aria-label="Alterar origem DANFE Matriz" hidden>Alterar</button><button type="button" data-abrir="caminho-0" aria-label="Abrir origem DANFE Matriz" hidden>Abrir</button></div>
+          <label for="caminho-1">DANFE · Filial</label><div class="campo-pasta"><input id="caminho-1" type="text" spellcheck="false"><button type="button" data-campo="caminho-1" aria-label="Alterar origem DANFE Filial" hidden>Alterar</button><button type="button" data-abrir="caminho-1" aria-label="Abrir origem DANFE Filial" hidden>Abrir</button></div>
+          <label for="caminho-2">XML · Matriz</label><div class="campo-pasta"><input id="caminho-2" type="text" spellcheck="false"><button type="button" data-campo="caminho-2" aria-label="Alterar origem XML Matriz" hidden>Alterar</button><button type="button" data-abrir="caminho-2" aria-label="Abrir origem XML Matriz" hidden>Abrir</button></div>
+          <label for="caminho-3">XML · Filial</label><div class="campo-pasta"><input id="caminho-3" type="text" spellcheck="false"><button type="button" data-campo="caminho-3" aria-label="Alterar origem XML Filial" hidden>Alterar</button><button type="button" data-abrir="caminho-3" aria-label="Abrir origem XML Filial" hidden>Abrir</button></div>
+        </div>
+      </details>
+    </div>
+  </header>
   <main>
     <p id="tema-status" class="ajuda erro" role="status"></p>
     <div class="painel">
       <div class="preparacao">
-        <section class="entrada" aria-labelledby="titulo-notas">
-          <div class="cabecalho-notas">
-            <h2 id="titulo-notas"><label for="notas">Notas</label></h2>
-            <div class="acoes-notas" role="group" aria-label="Ações das notas">
-              <button id="buscar" class="principal" type="button" disabled>Buscar</button>
-              <button id="mover" type="button" disabled>Mover</button>
-            </div>
-          </div>
-          <textarea id="notas" rows="4" placeholder="1234&#10;5678" aria-describedby="ajuda-notas" spellcheck="false"></textarea>
-          <p class="ajuda" id="ajuda-notas">Até quatro dígitos por nota. Separe por linha, espaço ou vírgula.</p>
+        <section class="destino-copias" aria-label="Destino das cópias">
           <div id="dica-destino" class="rotulo-ajuda">
             <label for="destino" tabindex="0" aria-describedby="texto-dica-destino">Salvar cópias em</label>
             <span id="texto-dica-destino" class="texto-dica" role="tooltip">A pasta é salva ao sair do campo ou encerrar.</span>
           </div>
-          <div class="campo-pasta"><input id="destino" type="text" spellcheck="false" aria-describedby="texto-dica-destino ajuda-destino"><button type="button" data-campo="destino" aria-label="Alterar pasta de cópias" hidden>Alterar</button></div>
+          <div class="campo-pasta"><input id="destino" type="text" spellcheck="false" aria-describedby="texto-dica-destino ajuda-destino"><button type="button" data-campo="destino" aria-label="Alterar pasta de cópias" hidden>Alterar</button><button type="button" data-abrir="destino" aria-label="Abrir pasta de cópias" hidden>Abrir</button></div>
           <p class="ajuda" id="ajuda-destino" role="status"></p>
-          <details><summary>Pastas de origem</summary><p class="ajuda">Carregadas deste computador. Ajustes valem somente nesta janela.</p>
-            <label for="caminho-0">DANFE · Matriz</label><div class="campo-pasta"><input id="caminho-0" type="text" spellcheck="false"><button type="button" data-campo="caminho-0" aria-label="Alterar origem DANFE Matriz" hidden>Alterar</button></div>
-            <label for="caminho-1">DANFE · Filial</label><div class="campo-pasta"><input id="caminho-1" type="text" spellcheck="false"><button type="button" data-campo="caminho-1" aria-label="Alterar origem DANFE Filial" hidden>Alterar</button></div>
-            <label for="caminho-2">XML · Matriz</label><div class="campo-pasta"><input id="caminho-2" type="text" spellcheck="false"><button type="button" data-campo="caminho-2" aria-label="Alterar origem XML Matriz" hidden>Alterar</button></div>
-            <label for="caminho-3">XML · Filial</label><div class="campo-pasta"><input id="caminho-3" type="text" spellcheck="false"><button type="button" data-campo="caminho-3" aria-label="Alterar origem XML Filial" hidden>Alterar</button></div>
-          </details>
         </section>
-        <section class="operacoes" aria-labelledby="titulo-acoes">
-          <h2 id="titulo-acoes">Ações</h2>
-          <article class="opcao"><h3>Buscar e copiar</h3><p>Procura na raiz e no ano atual. Copia DANFEs e XMLs para a pasta escolhida.</p></article>
-          <article class="opcao"><h3>Mover e organizar</h3><p>Organiza na própria origem por ano e mês, usando a data de modificação dos arquivos.</p></article>
-          <p class="ajuda">As duas ações usam a lista acima. Arquivos já existentes são preservados.</p>
+        <section class="entrada" aria-labelledby="titulo-notas">
+          <div class="cabecalho-notas">
+            <h2 id="titulo-notas">Notas</h2>
+          </div>
+          <div class="campo-notas">
+            <textarea id="notas" rows="10" placeholder="1234&#10;5678" aria-labelledby="titulo-notas" aria-describedby="ajuda-notas contagem-notas" spellcheck="false"></textarea>
+            <span id="contagem-notas" class="contagem-notas" role="status" aria-live="polite" aria-atomic="true">Contagem: 0</span>
+          </div>
+          <div class="rodape-entrada">
+            <p class="ajuda" id="ajuda-notas">Até quatro dígitos por nota. Separe por linha, espaço ou vírgula.</p>
+            <div class="acoes-notas" role="group" aria-label="Ações das notas">
+              <button id="buscar" class="principal" type="button" disabled>Buscar</button>
+              <button id="mover" type="button" disabled>Mover</button>
+              <button id="limpar" class="perigo" type="button" disabled>Limpar</button>
+            </div>
+          </div>
         </section>
+        <button id="ajuda-acoes" class="ajuda-acoes" type="button" aria-haspopup="dialog" aria-controls="dialogo-acoes">Como funcionam as ações</button>
       </div>
       <section class="acompanhamento" aria-labelledby="titulo-andamento">
         <div class="linha"><h2 id="titulo-andamento">Andamento e resultados</h2><button id="cancelar" type="button" disabled>Parar operação</button></div>
         <p id="status" role="status" aria-live="polite">Carregando configurações…</p>
-        <p id="resumo"></p>
-        <pre id="logs" aria-label="Registro da operação"></pre>
+        <div class="rolagem-resultados" tabindex="0" role="region" aria-label="Registro e resumo da operação">
+          <div id="resumo" class="contagens" aria-label="Resumo da operação" hidden>
+            <span class="indicador"><strong id="total-encontrados">0</strong>Encontrados</span>
+            <span class="indicador concluidos"><strong id="total-concluidos">0</strong><span id="rotulo-concluidos">Concluídos</span></span>
+            <span class="indicador"><strong id="total-ignorados">0</strong><span id="rotulo-ignorados">Já existentes</span></span>
+            <span class="indicador erros"><strong id="total-erros">0</strong>Erros</span>
+          </div>
+          <p id="notas-nao-encontradas" class="ajuda"></p>
+          <pre id="logs" aria-label="Registro da operação"></pre>
+        </div>
       </section>
     </div>
   </main>
-  <footer><span>Nunes Enxovais · Automações internas</span><span>Desenvolvido por <a class="assinatura" href="https://github.com/Gabriel2Mello" target="_blank" rel="noopener noreferrer" aria-label="g2mello no GitHub">g2me<span class="traco">l</span><span class="traco">l</span>o</a></span></footer>
+  <dialog id="dialogo-acoes" aria-labelledby="titulo-ajuda-acoes">
+    <h2 id="titulo-ajuda-acoes">Como funcionam as ações</h2>
+    <p><strong>Buscar</strong> procura na raiz e nas pastas do ano atual. Copia DANFEs e XMLs para a pasta escolhida.</p>
+    <p><strong>Mover</strong> organiza na própria origem por ano e mês, usando a data de modificação dos arquivos.</p>
+    <p><strong>Limpar</strong> exclui permanentemente todos os arquivos da pasta salva em “Salvar cópias em”, após a confirmação.</p>
+    <p class="ajuda">Buscar e Mover usam a lista de notas e preservam arquivos já existentes.</p>
+    <div class="acoes-dialogo"><button id="fechar-ajuda" type="button" autofocus>Fechar</button></div>
+  </dialog>
+  <footer><span>Desenvolvido por <a class="assinatura" href="https://github.com/Gabriel2Mello" target="_blank" rel="noopener noreferrer" aria-label="g2mello no GitHub">g2me<span class="traco">l</span><span class="traco">l</span>o</a></span><button id="encerrar" type="button">Encerrar</button></footer>
 </body>
 </html>

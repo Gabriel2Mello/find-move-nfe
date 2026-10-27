@@ -160,6 +160,69 @@ class TestDesktop(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.janela.escolher_pasta('comando')
 
+    def test_abrir_pasta_http_autenticado_aceita_somente_campo_e_pasta(self):
+        pasta = str(self.pasta)
+        corpo = json.dumps({'campo': 'destino', 'pasta': pasta}).encode()
+        with patch('desktop_notas.os.startfile') as abrir:
+            for extras in ({'Origin': 'null'}, {'X-Notas-Token': 'errado'}, {'Host': 'indevido'}):
+                self.assertEqual(self.pedido('/api/abrir-pasta', corpo=corpo, extras=extras, pagina=True)[0], 403)
+            for dados in ({'campo': 'destino'}, {'campo': 'destino', 'pasta': pasta, 'comando': 'open'},
+                          {'campo': 'comando', 'pasta': pasta}, {'campo': 'destino', 'pasta': 1}):
+                self.assertEqual(self.pedido('/api/abrir-pasta', corpo=json.dumps(dados).encode(), pagina=True)[0], 400)
+            abrir.assert_not_called()
+            for campo in ('destino', 'caminho-0', 'caminho-1', 'caminho-2', 'caminho-3'):
+                codigo, resposta = self.pedido('/api/abrir-pasta', corpo=json.dumps({'campo': campo, 'pasta': pasta}).encode(), pagina=True)
+                self.assertEqual((codigo, json.loads(resposta)), (200, {'ok': True}))
+            self.assertEqual(abrir.call_count, 5)
+            abrir.assert_called_with(str(self.pasta.resolve()), 'explore')
+        self.assertIsNone(self.servidor.worker)
+        self.assertFalse(self.servidor.arquivo_preferencias.exists())
+
+    def test_abrir_pasta_recusa_arquivos_e_nao_cria_diretorios(self):
+        arquivo = self.pasta / 'teste.cmd'
+        arquivo.write_text('conteudo sintetico', encoding='utf-8')
+        ausente = self.pasta / 'inexistente'
+        with patch('desktop_notas.os.startfile') as abrir:
+            for pasta in ('', ' \t', str(arquivo), str(ausente), '\x00', 'a\nb', 'a\rb', 'a' * 4097):
+                with self.assertRaises(ValueError):
+                    self.janela.abrir_pasta('destino', pasta)
+                self.assertFalse(self.servidor.configurando)
+            abrir.assert_not_called()
+        self.assertFalse(ausente.exists())
+
+    def test_abrir_pasta_preserva_trava_e_libera_apos_falha_do_explorador(self):
+        with patch('desktop_notas.os.startfile') as abrir:
+            for estado in ('ocupado', 'encerrando', 'configurando'):
+                setattr(self.servidor, estado, True)
+                try:
+                    with self.assertRaises(ValueError):
+                        self.janela.abrir_pasta('destino', str(self.pasta))
+                finally:
+                    setattr(self.servidor, estado, False)
+            abrir.assert_not_called()
+            def explorar(*args):
+                self.assertTrue(self.servidor.configurando)
+                with self.assertRaises(ValueError):
+                    self.servidor.iniciar({'acao': 'buscar'})
+                raise OSError('Explorador sintético indisponível')
+            abrir.side_effect = explorar
+            codigo, _ = self.pedido('/api/abrir-pasta', corpo=json.dumps({'campo': 'destino', 'pasta': str(self.pasta)}).encode(), pagina=True)
+            self.assertEqual(codigo, 400)
+            self.assertFalse(self.servidor.configurando)
+
+    def test_abrir_pasta_recusa_encerramento_durante_validacao_do_caminho(self):
+        def diretorio():
+            self.servidor.encerrando = True
+            return True
+        with patch('desktop_notas.Path.is_dir', side_effect=diretorio), patch('desktop_notas.os.startfile') as abrir:
+            try:
+                with self.assertRaisesRegex(ValueError, 'encerrando'):
+                    self.janela.abrir_pasta('destino', str(self.pasta))
+                abrir.assert_not_called()
+                self.assertFalse(self.servidor.configurando)
+            finally:
+                self.servidor.encerrando = False
+
     def test_x_ocupado_confirma_uma_vez_e_hub_nao_reconfirma(self):
         entrou, liberar = Event(), Event()
         def lento(*a, **kw):

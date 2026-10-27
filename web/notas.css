@@ -1,11 +1,148 @@
-:root{color-scheme:light;--fundo:#f6f5f2;--superficie:#fff;--texto:#24272b;--secundario:#626871;--linha:#dfdfdc;--destaque:#0e7490;--suave:#eaf3f5;--foco:#0e7490;--erro:#aa2940}
-:root[data-tema=escuro]{color-scheme:dark;--fundo:#191b1e;--superficie:#22252a;--texto:#f0f0f0;--secundario:#aeb4be;--linha:#373b42;--destaque:#80ccdf;--suave:#29383d;--foco:#80ccdf;--erro:#ffadbd}
-*{box-sizing:border-box}html{scrollbar-gutter:stable}body{margin:0;min-height:100vh;background:var(--fundo);color:var(--texto);font:14px/1.5 "Cascadia Code",Consolas,monospace}button,input,textarea{font:inherit;color:inherit}button{min-height:38px;cursor:pointer;border:1px solid var(--linha);border-radius:7px;padding:7px 11px;background:var(--superficie);font-weight:500}button:hover:enabled{background:var(--suave);border-color:var(--destaque)}button:disabled{opacity:.55;cursor:default}:focus-visible{outline:3px solid var(--foco);outline-offset:3px}a{color:var(--destaque)}[hidden]{display:none!important}
-header,main,footer{width:100%;max-width:1240px;margin:auto;padding:16px 24px}header{display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--linha)}.marca{display:flex;gap:10px;align-items:center;min-width:0}.marca img{border-radius:8px;flex-shrink:0}h1{font-size:21px;font-weight:600;line-height:1.25;margin:0}.marca p{margin:3px 0 0;font-size:12px;color:var(--secundario)}.acoes{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;flex-shrink:0}main{padding-top:18px}.painel{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.12fr);align-items:start;gap:20px}.preparacao{min-width:0;display:grid;gap:16px}.entrada,.operacoes,.acompanhamento{min-width:0;border:1px solid var(--linha);border-radius:9px;padding:18px;background:var(--superficie)}h2{font-size:16px;font-weight:600;margin:0 0 14px}h3{font-size:14px;font-weight:600;margin:0 0 4px}label{display:block;font-size:12px;font-weight:600;margin:14px 0 6px}input,textarea{width:100%;min-width:0;background:var(--fundo);border:1px solid var(--linha);border-radius:7px;padding:9px 10px}textarea{display:block;resize:vertical;min-height:100px;line-height:1.5}.campo-pasta{display:flex;align-items:center;gap:6px}.campo-pasta input{flex:1}.campo-pasta button{flex-shrink:0}.ajuda{font-size:11px;color:var(--secundario);margin:7px 0 0;overflow-wrap:anywhere}.ajuda:empty{display:none}#tema-status:not(:empty){margin:0 0 12px}details{margin-top:15px;padding-top:12px;border-top:1px solid var(--linha)}summary{cursor:pointer;font-size:12px;font-weight:600;min-height:24px}.opcao{padding:12px 0;border-top:1px solid var(--linha)}.opcao p{font-size:11px;color:var(--secundario);margin:0;overflow-wrap:anywhere}.acoes-notas .principal{background:#0e7490;color:#fff;border-color:#0e7490}.acoes-notas .principal:hover:enabled{background:#0b627a}.linha{display:flex;align-items:center;justify-content:space-between;gap:12px}.linha h2{margin:0}.linha button{font-size:11px;flex-shrink:0}#status{font-size:13px;margin:16px 0;color:var(--secundario);overflow-wrap:anywhere}.erro{color:var(--erro)!important}#resumo{font-size:12px;margin:0 0 14px;overflow-wrap:anywhere}#resumo:empty{display:none}pre{font:12px/1.7 "Cascadia Code",Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}#logs:not(:empty){padding-top:12px;border-top:1px solid var(--linha)}footer{display:flex;justify-content:space-between;gap:16px;font-size:11px;color:var(--secundario);padding-top:8px;padding-bottom:18px;overflow-wrap:anywhere}
-@media(max-width:800px){.painel{grid-template-columns:1fr}.acompanhamento{min-height:150px}header,main,footer{padding-left:16px;padding-right:16px}}
-@media(max-width:480px){header{align-items:flex-start}h1{font-size:16px}.marca p{font-size:10px}.acoes{flex-direction:column}.acoes button{font-size:11px;padding:6px 9px;min-height:32px}.entrada,.operacoes,.acompanhamento{padding:14px}.opcao{grid-template-columns:1fr}.linha{flex-wrap:wrap}footer{flex-direction:column;gap:4px}.campo-pasta{flex-wrap:wrap}.campo-pasta input{flex-basis:100%}}
-.cabecalho-notas{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:7px}.cabecalho-notas h2{margin:0}.cabecalho-notas label{margin:0;font-size:inherit;font-weight:inherit}.acoes-notas{display:flex;flex-wrap:wrap;gap:8px}
-#notas{border-radius:0px;border-color:var(--foco);box-shadow:0 0 7px color-mix(in srgb,var(--foco) 45%,transparent);transition:border-color 180ms ease-in-out,box-shadow 180ms ease-in-out}
-#notas:focus,#notas:not(:placeholder-shown){border-color:var(--linha);box-shadow:none;outline:none}
-@media(prefers-reduced-motion:reduce){#notas{transition:none}}
-.rotulo-ajuda{position:relative;display:table;margin:14px 0 6px}.rotulo-ajuda label{margin:0;cursor:help}.texto-dica{position:absolute;z-index:10;left:0;bottom:100%;width:300px;max-width:calc(100vw - 64px);padding:10px;border:1px solid var(--linha);border-radius:7px;background:var(--superficie);color:var(--texto);box-shadow:0 4px 16px #0002;font-size:12px;line-height:1.5;visibility:hidden;opacity:0}.rotulo-ajuda:hover .texto-dica,.rotulo-ajuda:focus-within .texto-dica{visibility:visible;opacity:1}.rotulo-ajuda[data-fechada=true] .texto-dica{visibility:hidden;opacity:0}
+/* Superfícies e organização inspiradas na Cofre, com a identidade azul petróleo. */
+:root {
+  color-scheme:light;
+  --fundo:#f6f5f2; --superficie:#fff; --texto:#24272b; --secundario:#626871;
+  --linha:#dfdfdc; --destaque:#0e7490; --suave:#eaf3f5; --botao-texto:#fff;
+  --foco:#0e7490; --erro:#aa2940;
+}
+:root[data-tema=escuro] {
+  color-scheme:dark;
+  --fundo:#191b1e; --superficie:#22252a; --texto:#f0f0f0; --secundario:#aeb4be;
+  --linha:#373b42; --destaque:#80ccdf; --suave:#29383d; --botao-texto:#122b32;
+  --foco:#80ccdf; --erro:#ffadbd;
+}
+* { box-sizing:border-box; }
+html { height:100%; }
+body { display:flex; flex-direction:column; margin:0; height:100%; overflow:auto; background:var(--fundo); color:var(--texto); font:14px/1.5 "Segoe UI",sans-serif; }
+header,main,footer { width:100%; max-width:1220px; margin:0 auto; padding:16px 24px; }
+main { display:flex; flex-direction:column; flex:1; min-height:min-content; padding-top:0; padding-bottom:12px; }
+h1,h2,h3,p { margin:0; }
+h1 { font-size:21px; line-height:1.2; font-weight:600; }
+h1 span { margin-left:6px; color:var(--secundario); font-size:13px; font-weight:400; }
+h2 { font-size:17px; font-weight:600; }
+h3 { font-size:14px; font-weight:600; }
+[hidden] { display:none!important; }
+a { color:var(--destaque); }
+button,input,textarea { font:inherit; color:inherit; background:var(--superficie); border:1px solid var(--linha); border-radius:7px; }
+button { min-height:40px; padding:8px 12px; font-weight:500; cursor:pointer; }
+button:hover:enabled { background:var(--suave); border-color:var(--destaque); }
+button:disabled { opacity:.55; cursor:default; }
+input:disabled,textarea:disabled { opacity:.7; }
+:focus-visible { outline:3px solid var(--foco); outline-offset:3px; }
+input,textarea { width:100%; min-width:0; padding:9px 10px; }
+input { min-height:42px; }
+textarea { display:block; min-height:100px; resize:vertical; line-height:1.5; }
+textarea::placeholder { color:var(--secundario); }
+label { display:block; font-weight:500; margin:14px 0 7px; }
+.ajuda { font-size:12px; color:var(--secundario); margin:7px 0 0; overflow-wrap:anywhere; }
+.ajuda:empty { display:none; }
+.erro { color:var(--erro)!important; }
+#tema-status:not(:empty) { flex-shrink:0; margin:0 0 12px; }
+
+.cabecalho { display:flex; align-items:center; justify-content:space-between; flex-shrink:0; gap:16px; padding-bottom:24px; }
+.marca { display:flex; align-items:center; gap:10px; min-width:0; }
+.marca img { border-radius:7px; flex-shrink:0; }
+.controles-cabecalho { display:flex; align-items:center; gap:8px; margin-left:auto; }
+.botao-icone { display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; width:40px; height:40px; padding:8px; }
+.icone-controle { width:24px; height:24px; }
+/* O texto e o nome acessível continuam sob responsabilidade do tema compartilhado. */
+#tema { font-size:0; }
+#tema::before { content:""; width:24px; height:24px; background:currentColor; mask:url('/icons/tema-lua.svg') center / contain no-repeat; }
+:root[data-tema=escuro] #tema::before { mask-image:url('/icons/tema-lua-sol.svg'); }
+.configuracoes { position:relative; }
+.configuracoes summary { display:flex; list-style:none; cursor:pointer; min-height:40px; padding:8px; border:1px solid var(--linha); border-radius:7px; background:var(--superficie); }
+.configuracoes summary:hover { background:var(--suave); border-color:var(--destaque); }
+.configuracoes summary::-webkit-details-marker { display:none; }
+.menu-configuracoes { position:absolute; top:calc(100% + 8px); right:0; z-index:5; width:min(450px,calc(100vw - 48px)); max-height:calc(100dvh - 120px); overflow-y:auto; padding:16px; border:1px solid var(--linha); border-radius:8px; background:var(--superficie); box-shadow:0 4px 16px #0002; }
+
+/* A preparação define a altura mínima; só os resultados têm rolagem própria. */
+.painel { display:grid; flex:1; min-height:min-content; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:28px; }
+.preparacao { min-width:0; padding:3px 4px 3px 0; }
+.entrada,.acompanhamento { min-width:0; }
+.destino-copias { position:relative; }
+.entrada { margin-top:18px; }
+.cabecalho-notas { margin-bottom:10px; }
+.rodape-entrada { display:flex; flex-direction:column; align-items:stretch; gap:10px; margin-top:7px; }
+.rodape-entrada .ajuda { margin:0; }
+.acoes-notas { display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; flex-shrink:0; }
+.acoes-notas button { min-height:32px; padding:4px 12px; font-size:13px; }
+.acoes-notas .principal { background:var(--destaque); border-color:var(--destaque); color:var(--botao-texto); font-weight:600; }
+.acoes-notas .principal:hover:enabled { background:var(--destaque); filter:brightness(.95); }
+.acoes-notas .perigo { color:var(--erro); }
+.acoes-notas .perigo:hover:enabled { border-color:var(--erro); }
+.campo-notas { position:relative; }
+#notas { height:calc(15em + 40px); min-height:calc(15em + 40px); resize:none; padding-bottom:29px; scrollbar-gutter:stable; font-family:"Cascadia Code",Consolas,monospace; border-color:var(--foco); box-shadow:0 0 7px color-mix(in srgb,var(--foco) 45%,transparent); transition:border-color 180ms ease-in-out,box-shadow 180ms ease-in-out; }
+.contagem-notas { position:absolute; right:24px; bottom:7px; color:var(--secundario); background:transparent; font-size:12px; font-variant-numeric:tabular-nums; pointer-events:none; }
+#notas:focus,#notas:not(:placeholder-shown) { border-color:var(--linha); box-shadow:none; outline:none; }
+.campo-pasta { display:flex; align-items:center; gap:6px; }
+.campo-pasta input { flex:1; }
+.campo-pasta button { flex-shrink:0; }
+.ajuda-acoes { margin-top:10px; padding:3px 0; min-height:30px; border:0; background:transparent; color:var(--secundario); font-size:12px; }
+.ajuda-acoes:hover:enabled { color:var(--destaque); background:transparent; }
+dialog { width:min(450px,calc(100% - 32px)); max-height:calc(100dvh - 32px); padding:20px; border:1px solid var(--linha); border-radius:9px; background:var(--superficie); color:var(--texto); overflow-y:auto; }
+dialog::backdrop { background:#0007; }
+dialog h2 { margin-bottom:12px; }
+dialog p { margin-top:12px; font-size:13px; }
+.acoes-dialogo { display:flex; justify-content:flex-end; margin-top:18px; }
+.acompanhamento { display:flex; flex-direction:column; min-height:0; contain:size; padding-left:24px; border-left:1px solid var(--linha); }
+.linha { display:flex; align-items:center; justify-content:space-between; flex-shrink:0; gap:12px; }
+.linha button { font-size:12px; flex-shrink:0; }
+#status { flex-shrink:0; color:var(--secundario); font-size:13px; margin:10px 0 14px; overflow-wrap:anywhere; }
+.rolagem-resultados { flex:1; min-height:0; overflow-y:auto; scrollbar-gutter:stable; padding-right:12px; overflow-wrap:anywhere; }
+.rolagem-resultados:focus-visible { outline:2px solid var(--foco); outline-offset:-2px; }
+.contagens { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-bottom:14px; font-size:12px; }
+.indicador { min-width:0; padding:8px 10px; border:1px solid var(--linha); border-radius:7px; background:var(--superficie); color:var(--secundario); }
+.indicador strong { display:block; font-size:18px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1.3; color:var(--texto); }
+.indicador.concluidos strong { color:var(--destaque); }
+.indicador.erros strong { color:var(--erro); }
+#notas-nao-encontradas:not(:empty) { margin:0 0 14px; }
+pre { font:12px/1.7 "Cascadia Code",Consolas,monospace; white-space:pre-wrap; overflow-wrap:anywhere; margin:0; }
+#logs:not(:empty) { padding-top:12px; border-top:1px solid var(--linha); }
+footer { display:flex; align-items:center; justify-content:space-between; flex-shrink:0; gap:12px; min-height:44px; padding-block:0; margin-top:12px; border-top:1px solid var(--linha); font-size:11px; color:var(--secundario); }
+#encerrar { padding:4px 0; border:0; background:transparent; color:var(--secundario); font-size:12px; }
+
+.rotulo-ajuda { position:relative; display:table; margin:16px 0 7px; }
+.destino-copias .rotulo-ajuda { position:static; margin:0 0 7px; }
+.destino-copias .texto-dica { top:calc(100% + 4px); bottom:auto; }
+.rotulo-ajuda label { margin:0; cursor:help; }
+.texto-dica { position:absolute; z-index:10; left:0; bottom:100%; width:300px; max-width:calc(100vw - 64px); padding:10px; border:1px solid var(--linha); border-radius:7px; background:var(--superficie); color:var(--texto); box-shadow:0 4px 16px #0002; font-size:12px; line-height:1.5; visibility:hidden; opacity:0; }
+.rotulo-ajuda:hover .texto-dica,.rotulo-ajuda:focus-within .texto-dica { visibility:visible; opacity:1; }
+.rotulo-ajuda[data-fechada=true] .texto-dica { visibility:hidden; opacity:0; }
+
+/* Mesma troca breve de cores e rotação do ícone da Cofre, somente após clique. */
+@media (prefers-reduced-motion:no-preference) {
+  :root[data-tema-animado] :where(body,button,input,textarea,summary,h1 span,.ajuda,.contagem-notas,
+    .acompanhamento,#status,.indicador,.indicador strong,dialog,.menu-configuracoes,footer,.assinatura,.texto-dica) {
+    transition:background-color 150ms ease,color 150ms ease,border-color 150ms ease;
+  }
+  :root[data-tema-animado] #notas { transition:background-color 150ms ease,color 150ms ease,border-color 180ms ease-in-out,box-shadow 180ms ease-in-out; }
+  :root[data-tema-animado] textarea::placeholder { transition:color 150ms ease; }
+  :root[data-tema-animado] #tema::before { transition:background-color 150ms ease; }
+  :root[data-tema-animado][data-tema=claro] #tema::before { animation:tema-icone-claro 120ms ease-out; }
+  :root[data-tema-animado][data-tema=escuro] #tema::before { animation:tema-icone-escuro 120ms ease-out; }
+}
+@keyframes tema-icone-claro { from { transform:rotate(-24deg); } to { transform:rotate(0); } }
+@keyframes tema-icone-escuro { from { transform:rotate(24deg); } to { transform:rotate(0); } }
+@media (prefers-reduced-motion:reduce) { #notas { transition:none; } }
+@media (min-width:760px) and (max-width:1000px),(max-width:430px) { .contagens { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (pointer:coarse) { button,.botao-icone,.configuracoes summary,.acoes-notas button { min-width:44px; min-height:44px; } }
+@media (max-width:760px) {
+  body { height:auto; min-height:100%; overflow:auto; }
+  header,main,footer { padding-inline:18px; }
+  main { flex:1 0 auto; }
+  .painel { flex:none; grid-template-columns:minmax(0,1fr); gap:20px; }
+  .preparacao { overflow:visible; padding:0; }
+  .acompanhamento { contain:none; padding:16px 0 0; border-left:0; border-top:1px solid var(--linha); min-height:150px; }
+  .rolagem-resultados { overflow:visible; padding-right:0; }
+  .menu-configuracoes { max-height:calc(100dvh - 150px); }
+}
+@media (max-width:430px) {
+  header,main,footer { padding-inline:12px; }
+  .cabecalho { flex-wrap:wrap; padding-top:12px; padding-bottom:20px; gap:12px; }
+  h1 { font-size:19px; }
+  h1 span { display:none; }
+  .linha { flex-wrap:wrap; }
+  .campo-pasta { flex-wrap:wrap; }
+  .campo-pasta input { flex-basis:100%; }
+  input,textarea { font-size:16px; }
+}

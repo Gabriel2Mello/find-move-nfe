@@ -129,6 +129,30 @@ class Janela:
       with servidor.mutex:
         servidor.configurando = False
 
+  def abrir_pasta(self, campo, pasta):
+    servidor = self.servidor
+    if campo not in ('destino', 'caminho-0', 'caminho-1', 'caminho-2', 'caminho-3'):
+      raise ValueError('Campo de pasta inválido.')
+    if (not isinstance(pasta, str) or not pasta.strip() or len(pasta) > 4096
+        or any(caractere in pasta for caractere in ('\x00', '\r', '\n'))):
+      raise ValueError('Informe uma pasta válida para abrir.')
+    with servidor.mutex:
+      if servidor.encerrando or servidor.ocupado or servidor.configurando or self.janela is None:
+        raise ValueError('Aguarde o fim da execução ou da escolha de pasta atual.')
+      servidor.configurando = True
+    try:
+      caminho = Path(pasta.strip()).resolve()
+      if not caminho.is_dir():
+        raise ValueError('A pasta não existe ou está inacessível. Confira o caminho informado.')
+      # O caminho é um valor literal; somente diretórios podem ser explorados.
+      with servidor.mutex:
+        if servidor.encerrando:
+          raise ValueError('A Busca e Move Notas está encerrando; a pasta não foi aberta.')
+        os.startfile(str(caminho), 'explore')
+    finally:
+      with servidor.mutex:
+        servidor.configurando = False
+
   def fechar(self, janela):
     if self.liberar:
       desktop_windows.salvar_geometria(janela.native, pasta_preferencias())
