@@ -24,6 +24,18 @@ py -3.13-64 -m venv .venv-desktop
 
 O destino Windows precisa de .NET Framework 4.8 e WebView2 Evergreen Runtime
 instalados e autorizados pela TI. O pacote não instala esses runtimes.
+No ZIP conhecido desta distribuição, use **Propriedades → Geral → Desbloquear →
+Aplicar** (quando disponível), antes de **Extrair Tudo** em uma pasta nova.
+Isso evita que a marca de download bloqueie as bibliotecas .NET do pacote.
+
+Falhas na abertura do servidor, sincronizador, publicação ou janela mostram a
+etapa e o caminho de `find-move-nfe-diagnostico.txt`. O pacote tenta gravar ao
+lado do exe; sem permissão, usa `logs/` nas preferências e depois TEMP. O arquivo
+contém tipos/locais das causas, códigos numéricos e presença/marca de download
+dos recursos, sem mensagens brutas, documentos, credenciais ou valores livres
+do ambiente. Fonte `diagnostico_nunes.py` no Hub, com cópia independente e hashes
+declarados no manifesto. Veja o [padrão Nunes de diagnóstico](../estrutura-nunes/area-nunes/diagnosticos.md).
+
 O renderer é explicitamente `edgechromium`, sem fallback para IE.
 Referências: [instalação](https://pywebview.flowrl.com/guide/installation.html),
 [API de janelas e diálogos](https://pywebview.flowrl.com/api/) e

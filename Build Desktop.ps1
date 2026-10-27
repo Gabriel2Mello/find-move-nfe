@@ -4,6 +4,7 @@ $ErrorActionPreference = 'Stop'
 if ($LASTEXITCODE -ne 0) { throw 'O build desktop de Busca e Move Notas falhou.' }
 $pacoteNotas = Join-Path $PSScriptRoot 'dist\Busca e Move Notas'
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'DESKTOP.md') -Destination $pacoteNotas
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'LEIA-ME.txt') -Destination $pacoteNotas
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Criar Atalho Busca e Move Notas.ps1') -Destination $pacoteNotas
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Abrir Busca e Move Notas.cmd') -Destination $pacoteNotas
 Write-Output "Distribua a pasta inteira $pacoteNotas, incluindo _internal. Consulte DESKTOP.md."

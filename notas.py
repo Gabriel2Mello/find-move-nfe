@@ -422,33 +422,44 @@ class Handler(BaseHTTPRequestHandler):
 
 def main(integracao):
     with MedidorAbertura('find-move-nfe') as medidor, ExitStack() as recursos:
-        with medidor.etapa('servidor_e_estado'):
-            servidor = Servidor(modo_desktop=True)
+        servidor = None
+        etapa = 'servidor_e_estado'
         try:
+            with medidor.etapa('servidor_e_estado'):
+                servidor = Servidor(modo_desktop=True)
+            etapa = 'sincronizacao'
             with medidor.etapa('sincronizacao'):
                 vinculo = vinculo_central()
                 if vinculo is None or vinculo.is_file():
                     servidor.sincronizador = recursos.enter_context(
                         Sincronizador(relatar=servidor.relatar, arquivo=vinculo))
+            etapa = 'publicacao'
             with medidor.etapa('publicacao'):
                 integracao.registro['desktop'] = 1
                 integracao.publicar(servidor, servidor.encerrar, servidor.situacao)
+            etapa = 'janela_webview2'
             from desktop_notas import executar as executar_desktop
             executar_desktop(servidor, recursos.close)
         except KeyboardInterrupt:
-            servidor.cancelar.set()
+            if servidor is not None:
+                servidor.cancelar.set()
         except Exception as erro:
-            integracao.registrar_falha(erro)
-            informar_falha(f'Não foi possível manter a janela ({type(erro).__name__}). Confira o ambiente desktop e WebView2.')
+            try:
+                integracao.registrar_falha(erro)
+            except OSError:
+                pass
+            informar_falha_abertura(erro, etapa)
             return 1
         finally:
-            servidor.encerrar()
-            if servidor.worker is not None:
-                servidor.worker.join()
+            if servidor is not None:
+                servidor.encerrar()
+                if servidor.worker is not None:
+                    servidor.worker.join()
             recursos.close()
-            if servidor.sincronizador is not None and servidor.sincronizador.worker is not None:
-                servidor.sincronizador.worker.join()
-            servidor.server_close()
+            if servidor is not None:
+                if servidor.sincronizador is not None and servidor.sincronizador.worker is not None:
+                    servidor.sincronizador.worker.join()
+                servidor.server_close()
     return 0
 
 
@@ -458,6 +469,18 @@ def informar_falha(mensagem):
         ctypes.windll.user32.MessageBoxW(None, mensagem, 'Busca e Move Notas', 0x10)
     else:
         print(mensagem, file=sys.stderr)
+
+
+def informar_falha_abertura(erro, etapa):
+    from diagnostico_abertura import registrar
+    try:
+        caminho = registrar(erro, etapa)
+    except Exception:
+        caminho = None
+    mensagem = f'Não foi possível abrir Busca e Move Notas.\nEtapa: {etapa}. Erro: {type(erro).__name__}.'
+    if caminho:
+        mensagem += f'\n\nEnvie o conteúdo deste diagnóstico ao suporte:\n{caminho}'
+    informar_falha(mensagem)
 
 
 def iniciar():

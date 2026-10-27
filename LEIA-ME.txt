@@ -1,0 +1,11 @@
+BUSCA E MOVE NOTAS - INSTALAÇÃO
+
+1. No ZIP recebido desta distribuição: botão direito > Propriedades > Geral >
+   Desbloquear (se aparecer) > Aplicar. Depois use Extrair Tudo em uma nova pasta.
+2. Mantenha Busca e Move Notas.exe junto da pasta _internal.
+3. O computador precisa de .NET Framework 4.8 e WebView2 Evergreen.
+4. Abra Busca e Move Notas.exe normalmente, com o usuário do operador.
+
+ERRO AO ABRIR
+Envie ao suporte o find-move-nfe-diagnostico.txt indicado na mensagem de erro.
+O guia DESKTOP.md descreve configurações, atualização e preservação dos dados.
