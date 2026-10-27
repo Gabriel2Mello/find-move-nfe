@@ -215,7 +215,6 @@ class Sincronizador:
             resultado = self.cliente.sincronizar()
         except FALHAS:
             if self.ultimo != 'pendente':
-                self.relatar('Estatísticas aguardando a central. Não repita a operação de negócio.')
                 logger.warning('Sincronização pendente; dados locais não foram removidos.')
             self.ultimo = 'pendente'
         else:
