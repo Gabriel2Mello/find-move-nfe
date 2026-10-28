@@ -233,6 +233,13 @@ Execute `python -m unittest discover -s tests -v` e `node --test tests/test_nota
 
 Servidor em `127.0.0.1`, porta automática, token por execução, Host exato e validação de Origin nas ações. O servidor serve somente recursos explicitamente cadastrados. O processamento roda fora da requisição HTTP; a interface continua disponível durante a operação.
 
+A preparação de Buscar/Mover também executa no worker: a operação fica reservada
+antes de consultar as pastas, sem bloquear o estado ou a janela durante uma
+consulta lenta. Erros de preparação aparecem no registro e no resultado.
+Parar/Encerrar durante essa etapa impedem a transferência e a criação do destino
+quando a consulta em andamento retornar; não interrompem uma chamada de sistema
+já bloqueada. Nenhuma segunda operação começa enquanto a preparação estiver ativa.
+
 ### Controle de tema compartilhado
 
 O layout segue a referência do Cofre NFe: cabeçalho compacto, fonte Segoe UI,

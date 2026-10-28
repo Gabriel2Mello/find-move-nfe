@@ -118,7 +118,9 @@ class Servidor(ThreadingHTTPServer):
             acao = dados.get('acao')
             if acao not in ('buscar', 'mover'):
                 raise ValueError('Ação inválida.')
-            numeros, pastas, destino = preparar(dados.get('notas'), dados.get('caminhos'), dados.get('destino'))
+            caminhos = dados.get('caminhos')
+            if isinstance(caminhos, list):
+                caminhos = caminhos.copy()
             self.limpeza_pendente = None
             self.ocupado = True
             self.cancelar.clear()
@@ -126,7 +128,8 @@ class Servidor(ThreadingHTTPServer):
             self.resultado = None
             self.acao = acao
             self.versao += 1
-            self.worker = Thread(target=self.trabalhar, args=(acao, numeros, pastas, destino, list(dados.get('caminhos') or [])))
+            self.worker = Thread(target=self.trabalhar,
+                args=(acao, dados.get('notas'), caminhos, dados.get('destino')))
             self.worker.start()
 
     def preparar_limpeza(self, caminhos):
@@ -193,10 +196,16 @@ class Servidor(ThreadingHTTPServer):
             if self.encerrando:
                 Thread(target=self.shutdown, daemon=True).start()
 
-    def trabalhar(self, acao, numeros, pastas, destino, caminhos):
+    def trabalhar(self, acao, notas, caminhos, destino):
         try:
-            resultado = executar(acao, numeros, pastas, destino, cancelar=self.cancelar, relatar=self.relatar,
-                                 formatar_caminho=lambda arquivo: caminho_resumido(arquivo, caminhos))
+            # Consultas a pastas de rede não podem reter a trava do estado/GUI.
+            numeros, pastas, destino = preparar(notas, caminhos, destino)
+            if self.cancelar.is_set():
+                resultado = dict(encontrados=0, concluidos=0, ignorados=0, erros=0,
+                                 cancelado=True, nao_encontradas=sorted(numeros))
+            else:
+                resultado = executar(acao, numeros, pastas, destino, cancelar=self.cancelar, relatar=self.relatar,
+                                     formatar_caminho=lambda arquivo: caminho_resumido(arquivo, caminhos))
         except Exception as erro:
             self.relatar(f'Não foi possível concluir: {erro}')
             resultado = {'erro': str(erro)}

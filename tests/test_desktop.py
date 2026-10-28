@@ -256,6 +256,39 @@ class TestDesktop(unittest.TestCase):
                 self.servidor.worker.join(3)
         self.assertTrue(self.servidor.resultado['cancelado'])
 
+    def test_x_e_hub_podem_encerrar_durante_preparacao_sem_transferir(self):
+        for origem in ('janela', 'hub'):
+            with self.subTest(origem=origem):
+                entrou, liberar = Event(), Event()
+                def preparar_lento(*args):
+                    entrou.set()
+                    if not liberar.wait(5):
+                        raise RuntimeError('Preparação sintética não liberada.')
+                    return {'1234'}, [], self.pasta / 'destino-nao-criado'
+                # O servidor HTTP é encerrado somente ao final do teste.
+                with patch.object(self.servidor, 'shutdown'), patch('notas.preparar', side_effect=preparar_lento), patch('notas.executar') as transferir:
+                    try:
+                        self.servidor.iniciar({'acao': 'buscar'})
+                        self.assertTrue(entrou.wait(1))
+                        self.assertTrue(self.servidor.situacao()['ocupado'])
+                        if origem == 'janela':
+                            self.janela.janela.create_confirmation_dialog.return_value = True
+                            self.assertFalse(self.janela.fechar(self.janela.janela))
+                            self.janela.janela.create_confirmation_dialog.assert_called_once()
+                        else:
+                            solicitar_encerramento(self.integracao.registro)
+                        self.assertTrue(self.servidor.cancelar.wait(1))
+                        self.assertTrue(self.servidor.encerrando)
+                        self.assertTrue(self.servidor.worker.is_alive())
+                    finally:
+                        liberar.set()
+                        self.servidor.worker.join(3)
+                    transferir.assert_not_called()
+                    self.assertFalse(self.servidor.ocupado)
+                    self.assertTrue(self.servidor.resultado['cancelado'])
+                with self.servidor.mutex:
+                    self.servidor.encerrando = False
+
 
 class TestCaminhos(unittest.TestCase):
     def test_fechamento_espera_a_fila_de_preferencias_sem_timeout_proprio(self):

@@ -259,6 +259,70 @@ class TestServidor(unittest.TestCase):
         self.assertEqual(self.pedido('GET', '/api/estado', headers={'X-Notas-Token':'x'})[0], 403)
         self.assertEqual(self.pedido('POST', '/api/iniciar', {'notas':'x'*33000})[0], 400)
 
+    def test_preparacao_lenta_responde_estado_e_reserva_unica_operacao(self):
+        entrou, liberar = Event(), Event()
+        caminhos = ['origem sintética'] * 4
+        def preparar_lento(*args):
+            entrou.set()
+            if not liberar.wait(5):
+                raise RuntimeError('Preparação sintética não liberada.')
+            self.assertEqual(args[1], ['origem sintética'] * 4)
+            return {'1234'}, [], Path('.')
+        with patch('notas.preparar', side_effect=preparar_lento), patch('notas.executar', return_value={'concluidos': 0}) as executar_mock:
+            try:
+                self.servidor.iniciar({'acao': 'buscar', 'caminhos': caminhos})
+                self.assertTrue(entrou.wait(1))
+                caminhos[0] = 'edição posterior'
+                codigo, corpo = self.pedido('GET', '/api/estado')
+                self.assertEqual(codigo, 200)
+                self.assertTrue(json.loads(corpo)['ocupado'])
+                self.assertEqual(self.pedido('POST', '/api/iniciar', {'acao': 'mover'})[0], 400)
+                executar_mock.assert_not_called()
+            finally:
+                liberar.set()
+                self.servidor.worker.join(3)
+            self.assertFalse(self.servidor.ocupado)
+            executar_mock.assert_called_once()
+
+    def test_parar_durante_preparacao_nao_cria_destino_nem_transfere(self):
+        pasta = self.servidor.dados
+        destino = pasta / 'destino-nao-criado'
+        entrou, liberar = Event(), Event()
+        preparar_real = preparar
+        def preparar_lento(*args):
+            entrou.set()
+            if not liberar.wait(5):
+                raise RuntimeError('Preparação sintética não liberada.')
+            return preparar_real(*args)
+        with patch('notas.preparar', side_effect=preparar_lento), patch('notas.executar', wraps=executar) as executar_mock:
+            try:
+                codigo, _ = self.pedido('POST', '/api/iniciar', dict(
+                    acao='buscar', notas='1234', caminhos=[str(pasta)]*4, destino=str(destino)))
+                self.assertEqual(codigo, 200)
+                self.assertTrue(entrou.wait(1))
+                self.assertEqual(self.pedido('POST', '/api/cancelar', {})[0], 200)
+                self.assertTrue(self.servidor.cancelar.is_set())
+            finally:
+                liberar.set()
+                self.servidor.worker.join(3)
+            executar_mock.assert_not_called()
+        self.assertFalse(destino.exists())
+        self.assertFalse(self.servidor.ocupado)
+        self.assertTrue(self.servidor.resultado['cancelado'])
+        self.assertEqual(self.servidor.resultado['concluidos'], 0)
+
+    def test_falha_de_preparacao_libera_estado_e_permite_novo_inicio(self):
+        with patch('notas.preparar', side_effect=OSError('origem sintética indisponível')), patch('notas.executar') as executar_mock:
+            self.assertEqual(self.pedido('POST', '/api/iniciar', {'acao': 'buscar'})[0], 200)
+            self.servidor.worker.join(3)
+            self.assertFalse(self.servidor.ocupado)
+            self.assertIn('indisponível', self.servidor.resultado['erro'])
+            executar_mock.assert_not_called()
+        with patch('notas.preparar', return_value=({'1234'}, [], Path('.'))), patch('notas.executar', return_value={'concluidos': 0}):
+            self.assertEqual(self.pedido('POST', '/api/iniciar', {'acao': 'mover'})[0], 200)
+            self.servidor.worker.join(3)
+            self.assertEqual(self.servidor.resultado, {'concluidos': 0})
+
     def test_duas_abas_e_fechamento_da_ultima(self):
         a = self.servidor.abrir_pagina('a')
         self.servidor.abrir_pagina('b')

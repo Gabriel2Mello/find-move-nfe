@@ -87,6 +87,10 @@ uma vez; cancelar mantém a execução; confirmar pede parada após concluir o
 arquivo em andamento. **Encerrar** confirma na própria tela e Hub confirma no
 monitor, sem repetição de confirmação na janela. O título indica encerramento.
 A saída aguarda worker e sincronizador antes de liberar recursos/exclusividade.
+A preparação de Buscar/Mover consulta as pastas fora da trava da janela e do
+estado. X, Parar e Hub podem solicitar a parada durante essa consulta; quando
+ela retornar, nenhuma transferência começa se houver parada solicitada.
+Falhas de preparação são apresentadas no registro e liberam a operação.
 Nenhum processo é morto por timeout. Perda de SSE/conexão, isoladamente, não
 encerra o desktop. Fechar o Hub mantém esta aplicação aberta.
 
