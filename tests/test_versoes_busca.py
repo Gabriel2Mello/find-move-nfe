@@ -233,7 +233,8 @@ class TestVersoesBusca(unittest.TestCase):
         estado = servidor.situacao()
         self.assertEqual(estado['resultado']['concluidos'], 1)
         self.assertTrue(any('encontrado em 2 locais diferentes' in l for l in estado['logs']))
-        self.assertTrue(any('Versão selecionada: MATRIZ · DANFE' in l and nova.name in l for l in estado['logs']))
+        self.assertEqual(estado['logs'][-1], f'Copiado: MATRIZ · DANFE\\{self.ano}\\B\\{nova.name}')
+        self.assertFalse(any('Versão selecionada:' in l for l in estado['logs']))
         self.assertFalse(any(str(self.raiz) in l for l in estado['logs']))
 
     def test_console_compartilha_a_selecao_e_aviso(self):

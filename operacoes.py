@@ -193,9 +193,7 @@ def _versoes_busca(grupos, destino, resumo, cancelar, relatar, formatar_caminho=
                 break
         else:
             emissao, _, _, escolhida, numero, estado = max(versoes, key=lambda v: v[:3])
-            if formatar_caminho is not None:
-                relatar(f'Versão selecionada: {formatar_caminho(escolhida)}')
-            else:
+            if formatar_caminho is None:
                 relatar(f'Versão selecionada: {escolhida} · emissão {emissao:%d/%m/%Y}. '
                         f'Modificação {datetime.fromtimestamp(estado[3] / 1_000_000_000):%d/%m/%Y %H:%M:%S}. '
                         f'{len(versoes) - 1} outra(s) versão(ões) descartada(s) da busca; '
@@ -277,7 +275,9 @@ def executar(acao, numeros, pastas, destino, *, cancelar=None, relatar=print, fo
                 _mover_sem_substituir(source, alvo)
             resumo['concluidos'] += 1
             _registrar_conclusao(acao, source, alvo, numero, relatar)
-            relatar(f'{"Copiado" if acao == "buscar" else "Movido"}: {arquivo}')
+            caminho_log = (formatar_caminho(source) if acao == 'buscar' and estado is not None
+                           and formatar_caminho is not None else arquivo)
+            relatar(f'{"Copiado" if acao == "buscar" else "Movido"}: {caminho_log}')
         except ConflitoDestino:
             resumo['ignorados'] += 1
             relatar(f'Conflito: já existe no destino; origem preservada: {arquivo}')
