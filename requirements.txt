@@ -1,0 +1,2 @@
+# Leitura da data de emissão em versões de DANFE com o mesmo nome.
+pypdf==6.21.3

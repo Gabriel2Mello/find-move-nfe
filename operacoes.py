@@ -12,6 +12,7 @@ import tempfile
 
 from metricas_nunes import registrar_evento
 from sincronizar_estatisticas import Sincronizador
+from emissao_nfe import data_emissao
 
 VARIAVEIS = ('CAMINHO_DANFE_MATRIZ', 'CAMINHO_DANFE_FILIAL',
              'CAMINHO_XML_MATRIZ', 'CAMINHO_XML_FILIAL')
@@ -93,8 +94,11 @@ def _conferir_origem(origem: Path, estado: tuple[int, int, int, int, int], diges
         raise OSError('Origem alterada durante a transferência; confira o arquivo antes de repetir.')
 
 
-def _copiar_verificado(origem: Path, alvo: Path, *, remover_origem: bool = False) -> None:
+def _copiar_verificado(origem: Path, alvo: Path, *, remover_origem: bool = False,
+                       estado_esperado=None) -> None:
     estado = _assinatura(origem)
+    if estado_esperado is not None and estado != estado_esperado:
+        raise OSError('Origem alterada após a seleção por emissão; repita a busca com as origens estáveis.')
     with tempfile.NamedTemporaryFile(dir=alvo.parent, prefix='.nunes-', suffix='.tmp', delete=False) as stream:
         temporario = Path(stream.name)
     try:
@@ -139,7 +143,67 @@ def _registrar_conclusao(acao, origem, alvo, numero, relatar):
                 'O relatório pode ficar incompleto; não repita a operação por isso.')
 
 
-def executar(acao, numeros, pastas, destino, *, cancelar=None, relatar=print):
+def caminho_resumido(arquivo, caminhos):
+    arquivo = Path(arquivo)
+    correspondencias = []
+    for indice, caminho in enumerate(caminhos):
+        base = Path(caminho.strip()).resolve()
+        if arquivo.is_relative_to(base):
+            empresa = 'MATRIZ' if indice % 2 == 0 else 'FILIAL'
+            tipo = 'DANFE' if indice < 2 else 'XML'
+            relativo = arquivo.relative_to(base)
+            correspondencias.append((len(base.parts), f'{empresa} · {tipo}\\{str(relativo).replace(chr(47), chr(92))}'))
+    return max(correspondencias, key=lambda item: item[0])[1] if correspondencias else str(arquivo)
+
+
+def _versoes_busca(grupos, destino, resumo, cancelar, relatar, formatar_caminho=None):
+    for candidatos in grupos.values():
+        if cancelar is not None and cancelar.is_set():
+            resumo['cancelado'] = True
+            return
+        if len(candidatos) > 1:
+            if formatar_caminho is not None:
+                relatar(f'Arquivo encontrado em {len(candidatos)} locais diferentes:')
+                for source, _ in candidatos:
+                    relatar(formatar_caminho(source))
+            else:
+                relatar(f'Arquivo encontrado em {len(candidatos)} locais diferentes: {candidatos[0][0].name}. '
+                        + ' | '.join(str(source) for source, _ in candidatos))
+        if len(candidatos) == 1:
+            yield (*candidatos[0], None)
+            continue
+        versoes = []
+        for source, numero in candidatos:
+            if cancelar is not None and cancelar.is_set():
+                resumo['cancelado'] = True
+                return
+            try:
+                if (destino / source.name).exists():
+                    yield source, numero, None
+                    break
+                estado = _assinatura(source)
+                emissao = data_emissao(source)
+                if _assinatura(source) != estado:
+                    raise OSError('Origem alterada durante a leitura da emissão.')
+                versoes.append((emissao, estado[3], str(source), source, numero, estado))
+            except (OSError, ValueError) as erro:
+                resumo['erros'] += 1
+                relatar(f'Não foi possível escolher a versão mais recente de {source.name}: {erro} '
+                        'Nenhuma versão desse nome será copiada.')
+                break
+        else:
+            emissao, _, _, escolhida, numero, estado = max(versoes, key=lambda v: v[:3])
+            if formatar_caminho is not None:
+                relatar(f'Versão selecionada: {formatar_caminho(escolhida)}')
+            else:
+                relatar(f'Versão selecionada: {escolhida} · emissão {emissao:%d/%m/%Y}. '
+                        f'Modificação {datetime.fromtimestamp(estado[3] / 1_000_000_000):%d/%m/%Y %H:%M:%S}. '
+                        f'{len(versoes) - 1} outra(s) versão(ões) descartada(s) da busca; '
+                        'emissões iguais usam a modificação mais recente.')
+            yield escolhida, numero, estado
+
+
+def executar(acao, numeros, pastas, destino, *, cancelar=None, relatar=print, formatar_caminho=None):
     """Conclui o arquivo atual antes de atender a uma solicitação de parada."""
     if acao not in ('buscar', 'mover'):
         raise ValueError('Ação inválida.')
@@ -151,65 +215,75 @@ def executar(acao, numeros, pastas, destino, *, cancelar=None, relatar=print):
         resumo['erros'] += 1
         relatar(f'Erro de acesso: {erro}')
 
-    if acao == 'buscar':
-        destino.mkdir(parents=True, exist_ok=True)
-    for base in pastas:
-        for raiz, dirs, arquivos in walk(base, onerror=erro_caminho, followlinks=False):
-            if cancelar is not None and cancelar.is_set():
-                resumo['cancelado'] = True
-                break
-            root = Path(raiz)
-            if root == destino or root.is_relative_to(destino):
-                dirs[:] = []
-                continue
-            if acao == 'buscar' and root == base:
-                dirs[:] = [d for d in dirs if d == ano]
-            elif acao == 'mover':
-                dirs[:] = [d for d in dirs if not d.isdigit()]
-            for arquivo in arquivos:
+    def localizar():
+        for base in pastas:
+            for raiz, dirs, arquivos in walk(base, onerror=erro_caminho, followlinks=False):
                 if cancelar is not None and cancelar.is_set():
                     resumo['cancelado'] = True
-                    break
-                nome = arquivo.lower()
-                if not nome.startswith('nfe'):
+                    return
+                root = Path(raiz)
+                if root == destino or root.is_relative_to(destino):
+                    dirs[:] = []
                     continue
-                numero = pdf_number(nome) if nome.endswith('.pdf') else xml_number(nome) if nome.endswith('.xml') else None
-                if numero not in numeros:
-                    continue
-                source = root / arquivo
-                if source in visitados:
-                    continue
-                visitados.add(source)
-                achadas.add(numero)
-                resumo['encontrados'] += 1
-                try:
-                    if acao == 'buscar':
-                        alvo = destino / arquivo
-                    else:
-                        data = datetime.fromtimestamp(source.stat().st_mtime)
-                        alvo = root / str(data.year) / MONTHS[data.month] / arquivo
-                    if alvo.exists():
-                        resumo['ignorados'] += 1
-                        relatar(f'Já existe no destino: {arquivo}')
+                if acao == 'buscar' and root == base:
+                    dirs[:] = [d for d in dirs if d == ano]
+                elif acao == 'mover':
+                    dirs[:] = [d for d in dirs if not d.isdigit()]
+                for arquivo in arquivos:
+                    if cancelar is not None and cancelar.is_set():
+                        resumo['cancelado'] = True
+                        return
+                    nome = arquivo.lower()
+                    if not nome.startswith('nfe'):
                         continue
-                    alvo.parent.mkdir(parents=True, exist_ok=True)
-                    if acao == 'buscar':
-                        _copiar_verificado(source, alvo)
-                    else:
-                        _mover_sem_substituir(source, alvo)
-                    resumo['concluidos'] += 1
-                    _registrar_conclusao(acao, source, alvo, numero, relatar)
-                    relatar(f'{"Copiado" if acao == "buscar" else "Movido"}: {arquivo}')
-                except ConflitoDestino:
-                    resumo['ignorados'] += 1
-                    relatar(f'Conflito: já existe no destino; origem preservada: {arquivo}')
-                except OSError as erro:
-                    resumo['erros'] += 1
-                    relatar(f'Erro em {arquivo}: {erro}')
-            if resumo['cancelado']:
-                break
-        if resumo['cancelado']:
+                    numero = pdf_number(nome) if nome.endswith('.pdf') else xml_number(nome) if nome.endswith('.xml') else None
+                    if numero not in numeros:
+                        continue
+                    source = root / arquivo
+                    if source in visitados:
+                        continue
+                    visitados.add(source)
+                    achadas.add(numero)
+                    resumo['encontrados'] += 1
+                    yield source, numero, None
+
+    candidatos = localizar()
+    if acao == 'buscar':
+        grupos = {}
+        for source, numero, _ in candidatos:
+            grupos.setdefault(source.name.casefold(), []).append((source, numero))
+        candidatos = _versoes_busca(grupos, destino, resumo, cancelar, relatar, formatar_caminho)
+        if not resumo['cancelado']:
+            destino.mkdir(parents=True, exist_ok=True)
+    for source, numero, estado in candidatos:
+        arquivo = source.name
+        if cancelar is not None and cancelar.is_set():
+            resumo['cancelado'] = True
             break
+        try:
+            if acao == 'buscar':
+                alvo = destino / arquivo
+            else:
+                data = datetime.fromtimestamp(source.stat().st_mtime)
+                alvo = source.parent / str(data.year) / MONTHS[data.month] / arquivo
+            if alvo.exists():
+                resumo['ignorados'] += 1
+                relatar(f'Já existe no destino: {arquivo}')
+                continue
+            alvo.parent.mkdir(parents=True, exist_ok=True)
+            if acao == 'buscar':
+                _copiar_verificado(source, alvo, estado_esperado=estado)
+            else:
+                _mover_sem_substituir(source, alvo)
+            resumo['concluidos'] += 1
+            _registrar_conclusao(acao, source, alvo, numero, relatar)
+            relatar(f'{"Copiado" if acao == "buscar" else "Movido"}: {arquivo}')
+        except ConflitoDestino:
+            resumo['ignorados'] += 1
+            relatar(f'Conflito: já existe no destino; origem preservada: {arquivo}')
+        except OSError as erro:
+            resumo['erros'] += 1
+            relatar(f'Erro em {arquivo}: {erro}')
     resumo['nao_encontradas'] = sorted(numeros - achadas)
     return resumo
 

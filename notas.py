@@ -12,7 +12,7 @@ from threading import Event, RLock, Thread
 import time
 
 from integracao_hub import MedidorAbertura, atender_integracao, IntegracaoLocal, ConflitoAplicacao
-from operacoes import caminhos_ambiente, executar, preparar
+from operacoes import caminhos_ambiente, executar, preparar, caminho_resumido
 from limpeza_copias import preparar_limpeza, executar_limpeza, diretorio
 from sincronizar_estatisticas import Sincronizador
 from caminhos_desktop import pasta_dados, recursos, ler_tema, salvar_tema, vinculo_central
@@ -126,7 +126,7 @@ class Servidor(ThreadingHTTPServer):
             self.resultado = None
             self.acao = acao
             self.versao += 1
-            self.worker = Thread(target=self.trabalhar, args=(acao, numeros, pastas, destino))
+            self.worker = Thread(target=self.trabalhar, args=(acao, numeros, pastas, destino, list(dados.get('caminhos') or [])))
             self.worker.start()
 
     def preparar_limpeza(self, caminhos):
@@ -193,9 +193,10 @@ class Servidor(ThreadingHTTPServer):
             if self.encerrando:
                 Thread(target=self.shutdown, daemon=True).start()
 
-    def trabalhar(self, acao, numeros, pastas, destino):
+    def trabalhar(self, acao, numeros, pastas, destino, caminhos):
         try:
-            resultado = executar(acao, numeros, pastas, destino, cancelar=self.cancelar, relatar=self.relatar)
+            resultado = executar(acao, numeros, pastas, destino, cancelar=self.cancelar, relatar=self.relatar,
+                                 formatar_caminho=lambda arquivo: caminho_resumido(arquivo, caminhos))
         except Exception as erro:
             self.relatar(f'Não foi possível concluir: {erro}')
             resultado = {'erro': str(erro)}

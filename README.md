@@ -39,7 +39,30 @@ inclua esse arquivo no backup para conservar a escolha. Sem preferência salva,
 continua valendo `notas/`. No pacote esses arquivos ficam nos dados persistentes
 do perfil, conforme [DESKTOP.md](DESKTOP.md). Notas e ajustes das origens mantêm o comportamento acima.
 
-Arquivos existentes no destino são preservados nas duas ações. Na busca, isso substitui a sobrescrita feita pelo script antigo. O acompanhamento informa cópias/movimentações, arquivos já existentes, erros e notas não encontradas. Arquivos com o mesmo nome em origens diferentes permanecem na origem quando já houver um destino com esse nome; confira o registro. Erros de acesso são mostrados, sem tratar uma pasta inacessível como busca concluída sem problemas.
+Arquivos existentes no destino são preservados nas duas ações. Na busca, isso substitui a sobrescrita feita pelo script antigo. O acompanhamento informa cópias/movimentações, arquivos já existentes, erros e notas não encontradas. Erros de acesso são mostrados, sem tratar uma pasta inacessível como busca concluída sem problemas.
+
+Quando **Buscar** encontra o mesmo nome de arquivo em mais de um local, reúne
+as versões antes de copiar e escolhe a **emissão mais recente**. Emissões iguais
+usam a **modificação mais recente do arquivo**; se ambas empatarem, o caminho
+serve apenas para manter a escolha estável, independentemente da ordem da busca.
+A lista de andamento e resultados informa que o arquivo foi encontrado em dois
+ou mais locais. Na interface, cada caminho aparece como empresa e trecho relativo,
+por exemplo `FILIAL · DANFE\2026\AGOSTO\Nfe0079974.pdf`, e a versão selecionada
+é indicada sem o detalhamento das datas. O console conserva os caminhos completos e datas.
+As outras versões permanecem nas origens e não geram o aviso de destino existente
+quando a pasta de cópias começou vazia. Encontrados inclui as versões localizadas;
+Concluídos e as métricas contam somente o arquivo efetivamente copiado.
+
+A emissão é lida no campo **DATA [DE] EMISSÃO** da primeira página do DANFE,
+incluindo o horário quando presente junto à data, ou em `ide/dhEmi` (`dEmi` nos
+XMLs antigos). Nome da pasta, criação do PDF, autorização e vencimento não
+substituem a emissão. Se uma versão duplicada não permitir essa leitura (inclusive
+PDF digitalizado sem texto), nenhuma versão daquele nome é copiada e o motivo
+aparece como erro. Arquivos sem duplicidade mantêm a cópia direta. **Mover**
+continua organizando por modificação, preservando colisões. Destinos já ocupados
+continuam preservados; para refazer a seleção, use uma pasta vazia ou a limpeza
+com confirmação. É necessário reabrir a aplicação para carregar a regra; pacotes
+executáveis antigos precisam ser reconstruídos.
 
 **Parar operação**, **Encerrar**, X da janela ou encerramento pelo monitor do Hub concluem o arquivo em andamento antes de parar. X durante operação confirma uma vez. A janela controla a vida do backend: perder presença/conexão não encerra o desktop e fechar o Hub mantém a ferramenta aberta. Apenas uma operação executa por vez. A aplicação não utiliza o Sisplan e pode funcionar junto das ferramentas que o reservam. O comportamento antigo de encerramento pela última aba permanece apenas nos testes do servidor web.
 
@@ -190,7 +213,9 @@ reinício em processos separados e pacote individual sem repositórios irmãos.
 
 ### Ambiente e testes da ferramenta
 
-O executor/console usa somente biblioteca padrão, Python 3.10 ou superior.
+O executor/console usa Python 3.10 ou superior e `pypdf`, fixado em
+`requirements.txt`, para ler a emissão de DANFEs duplicados. Instale com
+`python -m pip install -r requirements.txt` no ambiente do console.
 O desktop usa o ambiente Windows x64 com dependências fixadas descrito em
 [DESKTOP.md](DESKTOP.md). CMD e Hub preferem `.venv-desktop/Scripts/pythonw.exe`;
 para abrir diretamente: `.venv-desktop/Scripts/python.exe notas.py`.
