@@ -16,6 +16,8 @@ function interfaceTeste(opcoes = {}) {
         this.eventos.set(nome, anterior ? (...args)=>{anterior(...args); return fn(...args);} : fn);
       },
       showModal(){this.open=true;}, close(){this.open=false;},
+      selectionStart:0, selectionEnd:0, selectionDirection:'none', scrollTop:0, scrollLeft:0,
+      setSelectionRange(inicio, fim, direcao){this.selectionStart=inicio;this.selectionEnd=fim;this.selectionDirection=direcao;},
       set textContent(valor) {this.texto=valor; escritas++;},
       get textContent() {return this.texto;}
     });
@@ -464,13 +466,66 @@ test('contador acompanha digitação, colagem e limpeza com notas válidas sem r
   for (const [valor,total] of [
     ['1',1], ['12',1], ['12, 7; 0007\n0012\t9999',3],
     ['8098\r\n8402\n8403\n8404\n9593\n9594\n9595\n8440\n8441\n8405',10],
-    ['12345, texto, -1, 0, 0000, 25',2], [' \n\t,; ',0], ['',0]
+    ['12345, 0, 0000, 25',2], [' \n\t,; ',0], ['',0]
   ]) {
     campo.value=valor;
     campo.eventos.get('input')();
     assert.equal(contador.textContent,'Contagem: '+total);
   }
   assert.equal(pedidos.includes('/api/iniciar'),false);
+});
+
+test('Notas bloqueia letras e outros caracteres inválidos antes da inserção', () => {
+  const ui=interfaceTeste(), campo=ui.elemento('notas');
+  campo.value='1234\n5678';campo.eventos.get('input')();
+  campo.setSelectionRange(1,3,'backward');
+  for (const texto of ['a','Z','á','字','🙂','12A34','1234\ntexto\n5678','-','.']) {
+    let bloqueado=false;
+    campo.eventos.get('beforeinput')({data:texto,cancelable:true,preventDefault(){bloqueado=true;}});
+    assert.equal(bloqueado,true,texto);
+    assert.equal(campo.value,'1234\n5678');
+    assert.equal(campo.selectionStart,1);
+    assert.equal(campo.selectionEnd,3);
+  }
+  for (const texto of ['0','1234\n5678',' ,;\t\n',null]) {
+    let bloqueado=false;
+    campo.eventos.get('beforeinput')({data:texto,cancelable:true,preventDefault(){bloqueado=true;}});
+    assert.equal(bloqueado,false,String(texto));
+  }
+  let bloqueado=false;
+  campo.eventos.get('beforeinput')({data:null,dataTransfer:{getData:()=> '12A34'},cancelable:true,preventDefault(){bloqueado=true;}});
+  assert.equal(bloqueado,true);
+});
+
+test('colagem inválida sem beforeinput cancelável restaura conteúdo, seleção, rolagem e contagem', () => {
+  const pedidos=[], ui=interfaceTeste({fetch:rota=>{pedidos.push(rota);return pendente();}});
+  const campo=ui.elemento('notas');
+  campo.value='1234\n5678';campo.eventos.get('input')();
+  campo.setSelectionRange(1,3,'backward');campo.scrollTop=42;campo.scrollLeft=7;
+  campo.eventos.get('beforeinput')({data:null,cancelable:false});
+  campo.value='12A34\n5678';campo.setSelectionRange(5,5,'none');campo.scrollTop=0;campo.scrollLeft=0;
+  campo.eventos.get('input')();
+  assert.equal(campo.value,'1234\n5678');
+  assert.deepEqual([campo.selectionStart,campo.selectionEnd,campo.selectionDirection],[1,3,'backward']);
+  assert.deepEqual([campo.scrollTop,campo.scrollLeft],[42,7]);
+  assert.equal(ui.elemento('contagem-notas').textContent,'Contagem: 2');
+  assert.equal(pedidos.includes('/api/iniciar'),false);
+});
+
+test('edições válidas, exclusão e desfazer preservam o cursor e o texto informado', () => {
+  const ui=interfaceTeste(),campo=ui.elemento('notas');
+  for (const [texto,cursor] of [['1234',2],['1564',3],['14',1],['1564',3],['0012, 7;\n5678',12],['',0]]) {
+    campo.eventos.get('beforeinput')({data:null,cancelable:true});
+    campo.value=texto;campo.setSelectionRange(cursor,cursor,'none');
+    campo.eventos.get('input')();
+    assert.equal(campo.value,texto);
+    assert.equal(campo.selectionStart,cursor);
+    assert.equal(campo.selectionEnd,cursor);
+  }
+  campo.eventos.get('beforeinput')({data:'a',cancelable:false});
+  campo.value='a';campo.eventos.get('input')();
+  assert.equal(campo.value,'','conteúdo anterior não reaparece depois de limpar');
+  assert.equal(ui.elemento('contagem-notas').textContent,'Contagem: 0');
 });
 
 test('Abrir envia a pasta atual de cada campo sem alterar seleção ou executar operação', async () => {

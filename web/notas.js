@@ -9,14 +9,33 @@ let geracaoInicio = 0;
 let ultimaLimpezaAplicada = '';
 let assinaturaEstado = '', versaoEstado = -1, destinoSalvo = null, revisaoDestino = 0, salvamentosDestino = 0;
 const destinosPendentes = new Set();
+let notasAceitas = '', edicaoNotas = {inicio:0, fim:0, direcao:'none', topo:0, esquerda:0};
 function atualizarContagemNotas() {
+  notasAceitas = $('notas').value;
   const numeros = $('notas').value.split(/[\s,;]+/)
     .filter(numero => /^[0-9]{1,4}$/.test(numero))
     .map(numero => numero.padStart(4, '0'));
   const texto = 'Contagem: ' + new Set(numeros).size;
   if ($('contagem-notas').textContent !== texto) $('contagem-notas').textContent = texto;
 }
-$('notas').addEventListener('input', atualizarContagemNotas);
+$('notas').addEventListener('beforeinput', evento => {
+  const campo = $('notas');
+  edicaoNotas = {inicio:campo.selectionStart, fim:campo.selectionEnd,
+    direcao:campo.selectionDirection, topo:campo.scrollTop, esquerda:campo.scrollLeft};
+  const texto = evento.data ?? evento.dataTransfer?.getData('text/plain');
+  if (evento.cancelable && texto && /[^0-9\s,;]/u.test(texto)) evento.preventDefault();
+});
+$('notas').addEventListener('input', () => {
+  const campo = $('notas');
+  // Recusa a edição inteira: retirar letras poderia transformar o número da nota.
+  if (/[^0-9\s,;]/u.test(campo.value)) {
+    campo.value = notasAceitas;
+    campo.setSelectionRange(edicaoNotas.inicio, edicaoNotas.fim, edicaoNotas.direcao);
+    campo.scrollTop = edicaoNotas.topo;
+    campo.scrollLeft = edicaoNotas.esquerda;
+  }
+  atualizarContagemNotas();
+});
 atualizarContagemNotas();
 const dicaDestino = $('dica-destino');
 for (const evento of ['mouseenter', 'focusin']) dicaDestino.addEventListener(evento, () => {delete dicaDestino.dataset.fechada;});

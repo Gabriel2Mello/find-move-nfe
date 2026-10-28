@@ -10,6 +10,12 @@ o modo console e o ambiente anterior.
 
 Informe as notas na interface e escolha uma ação. A lista começa vazia no web/desktop; a interface não lê nem altera `notas.txt`. Somente as entradas console `find.py` e `move.py` carregam esse arquivo. São aceitos números de até quatro dígitos, separados por espaço, linha, vírgula ou ponto e vírgula. Números menores são completados com zeros. A identificação nos nomes dos arquivos preserva as posições dos scripts originais: quatro dígitos antes do dígito verificador do PDF e o trecho correspondente na chave do XML. Buscar e Mover consideram somente arquivos iniciados por `nfe`, sem distinção de maiúsculas, com extensão PDF ou XML.
 
+O campo **Notas** aceita somente dígitos e os separadores acima, sem letras ou
+outros símbolos. Digitação ou colagem com caracteres inválidos é recusada por
+inteiro, preservando a lista anterior; letras não são removidas para formar outro
+número. A validação de até quatro dígitos por nota continua sendo feita ao iniciar
+a operação.
+
 **Limpar**, à direita de Mover, independe da lista de notas. A aplicação salva o
 destino editado e prepara a limpeza da pasta configurada em **Salvar cópias em**.
 Havendo arquivos, a confirmação mostra o caminho e a quantidade. A exclusão é
