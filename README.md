@@ -194,6 +194,14 @@ O mesmo cliente acompanha as entradas web e console, sem depender do Hub
 instalado. O vínculo é preparado pela central e fica em `.local/central.json`;
 sem esse arquivo e sem `NUNES_CENTRAL_CONFIG`, não há sincronização.
 
+O sincronizador consulta na abertura e ao encerrar. A espera base entre ciclos
+é de cinco segundos; após ciclos sem atividade nem pendências, cresce para 10,
+20 e no máximo 30 segundos. Atividade ou falha retomam cinco segundos. A espera
+pode ser interrompida pelo encerramento; cada ciclo ainda faz a reconciliação
+completa do banco e da fila, sem cache persistente nem alteração de esquema.
+Um ciclo sem pendências evita a segunda leitura integral redundante. Esses
+intervalos são esperas entre ciclos, além do tempo de leitura/envio.
+
 O histórico local permanece disponível. A central confirma depois de gravar;
 falhas conservam a pendência e reenvios não acrescentam contagem. Não execute
 uma transferência novamente para recuperar estatística. O envio inclui eventos
@@ -203,8 +211,9 @@ consulta, recuperação e distribuição estão no guia da central. Não há ser
 permanente nem implantação no TS01 nesta etapa. O Hub oferece uma seção
 **Central local** com os totais recebidos e pendências, separada do relatório
 local com filtros. A consulta do Hub não envia eventos nem cria confirmações.
-O cliente deste projeto é distribuído também ao Hub e ao Cofre; mantenha as três cópias
-de `sincronizar_estatisticas.py` iguais, juntamente com o contrato do piloto.
+O cliente tem fonte neste projeto e seis cópias declaradas no
+[manifesto de manutenção do Hub](../nunes-hub/manutencao.json). Mantenha as sete
+cópias de `sincronizar_estatisticas.py` iguais, juntamente com o contrato do piloto.
 
 Validação deste piloto: 27 testes de central/integração, 47 regressões Python
 desta ferramenta e sete JavaScript aprovados, com arquivos sintéticos e uma
