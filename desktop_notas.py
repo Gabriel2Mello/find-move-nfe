@@ -215,6 +215,8 @@ class Janela:
   def executar(self):
     if os.name != 'nt':
       raise RuntimeError('O desktop da Busca e Move Notas requer Windows.')
+    from dpi_windows import preparar, validar_janela
+    preparar('BuscaMoveNotasDesktop')
     import webview
     desktop_windows.identidade_processo(APP_ID)
     webview.settings['ALLOW_DOWNLOADS'] = False
@@ -245,6 +247,7 @@ class Janela:
           janela.destroy()
           return
         hwnd = janela.native.Handle.ToInt64()
+        validar_janela(hwnd)
         desktop_windows.propriedades_janela(hwnd,
           desktop_windows.comando_reabrir([], Path(__file__).with_name('notas.py')),
           recursos() / 'icons/icone.ico', app_id=APP_ID, nome=NOME)

@@ -38,12 +38,18 @@ def ajustar_retangulo(retangulo, area, minimo):
 
 
 def restaurar_geometria(formulario, dados):
-    from System.Drawing import Rectangle
-    from System.Windows.Forms import Screen, FormStartPosition, FormWindowState
-    area = Screen.FromRectangle(Rectangle(*dados['retangulo'])).WorkingArea
-    retangulo = ajustar_retangulo(dados['retangulo'], (area.X, area.Y, area.Width, area.Height),
-                                  (formulario.MinimumSize.Width, formulario.MinimumSize.Height))
+    from System.Drawing import Point, Rectangle
+    from System.Windows.Forms import FormStartPosition, FormWindowState
+    from dpi_windows import monitor_do_retangulo
+    area = monitor_do_retangulo(dados['retangulo'])['area_util']
+    # Primeiro atravessar o monitor, deixando WinForms processar WM_DPICHANGED.
+    # Aplicar posição e tamanho juntos antes de Show pode escalar os pixels
+    # salvos uma segunda vez (por exemplo, 1180px vira 944px em 125% -> 100%).
+    posicao = ajustar_retangulo(dados['retangulo'], area, (1, 1))
     formulario.StartPosition = FormStartPosition.Manual
+    formulario.Location = Point(*posicao[:2])
+    retangulo = ajustar_retangulo(dados['retangulo'], area,
+                                  (formulario.MinimumSize.Width, formulario.MinimumSize.Height))
     formulario.Bounds = Rectangle(*retangulo)
     if dados['maximizada']:
         formulario.WindowState = FormWindowState.Maximized

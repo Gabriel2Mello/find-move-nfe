@@ -8,6 +8,13 @@ que o utilizam. Não há serviço residente nem import de repositório irmão.
 
 ## Preparar e abrir
 
+A janela segue o [padrão Nunes de DPI em 100%/125%](../estrutura-nunes/identidade-visual/interfaces/desktop-dpi.md),
+com bootstrap Per-Monitor V2 antes de WinForms, consulta nativa de monitores e
+restauração da posição antes do tamanho. `dpi_windows.py`, `desktop_windows.py`
+e `desktop-winforms.config` são cópias locais da fonte no Hub, declaradas no
+manifesto de manutenção. O pacote inclui a configuração de DPI. Reabra a
+aplicação; executáveis anteriores precisam ser reconstruídos e atualizados.
+
 Ambiente conferido em 25/10/2026: Windows 11, Python 3.13.13 x64, pywebview
 6.2.1, pythonnet 3.2.1, pywin32 312 e PyInstaller 6.21.0. O `.venv` anterior
 é Python 3.13.13 x86 e foi preservado para o console. O desktop usa um ambiente
