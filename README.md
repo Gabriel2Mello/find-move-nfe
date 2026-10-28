@@ -244,13 +244,18 @@ já bloqueada. Nenhuma segunda operação começa enquanto a preparação estive
 
 O layout segue a referência do Cofre NFe: cabeçalho compacto, fonte Segoe UI,
 preparação à esquerda e andamento/resultados à direita. O campo **Notas** tem
-dez linhas visíveis, altura fixa e contador discreto no canto inferior direito,
+altura de até dez linhas, que diminui conforme o espaço disponível na janela,
+e contador discreto no canto inferior direito,
 sem fundo próprio. A contagem considera números válidos de até quatro dígitos,
 sem repetir notas equivalentes como `7` e `0007`. A coluna esquerda não tem
 rolagem própria. As descrições
 ficam em **Como funcionam as ações**, que abre uma ajuda fechável com **Fechar**
-ou Escape. Em janelas baixas, a tela inteira pode rolar; os resultados mantêm
-sua rolagem própria em duas colunas. Em telas estreitas as áreas se empilham.
+ou Escape. Até o tamanho mínimo da janela desktop, o campo encolhe para manter
+ações e rodapé visíveis sem rolagem da página; listas longas rolam dentro do campo.
+O ajuste da altura é contínuo, preservando os espaçamentos entre seções.
+Os resultados mantêm sua rolagem própria
+em duas colunas. Em larguras de até 700 px, as áreas se empilham e a página pode
+rolar para preservar o acesso.
 **Configurações**, no cabeçalho,
 reúne as quatro pastas de origem; o menu fecha com Escape, clique ou foco fora.
 O destino das cópias permanece junto das notas, e **Encerrar** fica no rodapé.

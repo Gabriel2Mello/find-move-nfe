@@ -12,10 +12,11 @@
   --foco:#80ccdf; --erro:#ffadbd;
 }
 * { box-sizing:border-box; }
-html { height:100%; }
-body { display:flex; flex-direction:column; margin:0; height:100%; overflow:auto; background:var(--fundo); color:var(--texto); font:14px/1.5 "Segoe UI",sans-serif; }
+html { height:100%; scrollbar-width:thin; }
+/* Mantém a largura da janela; a barra fina ocupa somente a margem existente. */
+body { display:flex; flex-direction:column; margin:0; width:100vw; height:100%; overflow-x:hidden; overflow-y:auto; background:var(--fundo); color:var(--texto); font:14px/1.5 "Segoe UI",sans-serif; }
 header,main,footer { width:100%; max-width:1220px; margin:0 auto; padding:16px 24px; }
-main { display:flex; flex-direction:column; flex:1; min-height:min-content; padding-top:0; padding-bottom:12px; }
+main { display:flex; flex-direction:column; flex:1; min-height:min-content; padding-top:0; padding-bottom:8px; }
 h1,h2,h3,p { margin:0; }
 h1 { font-size:21px; line-height:1.2; font-weight:600; }
 h1 span { margin-left:6px; color:var(--secundario); font-size:13px; font-weight:400; }
@@ -57,12 +58,12 @@ label { display:block; font-weight:500; margin:14px 0 7px; }
 
 /* A preparação define a altura mínima; só os resultados têm rolagem própria. */
 .painel { display:grid; flex:1; min-height:min-content; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:28px; }
-.preparacao { min-width:0; padding:3px 4px 3px 0; }
+.preparacao { display:flex; flex-direction:column; min-width:0; padding:3px 4px 3px 0; }
 .entrada,.acompanhamento { min-width:0; }
-.destino-copias { position:relative; }
-.entrada { margin-top:18px; }
-.cabecalho-notas { margin-bottom:10px; }
-.rodape-entrada { display:flex; flex-direction:column; align-items:stretch; gap:10px; margin-top:7px; }
+.destino-copias { position:relative; flex-shrink:0; }
+.entrada { display:flex; flex-direction:column; flex:1; margin-top:18px; }
+.cabecalho-notas { flex-shrink:0; margin-bottom:10px; }
+.rodape-entrada { display:flex; flex-direction:column; align-items:stretch; flex-shrink:0; gap:10px; margin-top:7px; }
 .rodape-entrada .ajuda { margin:0; }
 .acoes-notas { display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; flex-shrink:0; }
 .acoes-notas button { min-height:32px; padding:4px 12px; font-size:13px; }
@@ -70,14 +71,15 @@ label { display:block; font-weight:500; margin:14px 0 7px; }
 .acoes-notas .principal:hover:enabled { background:var(--destaque); filter:brightness(.95); }
 .acoes-notas .perigo { color:var(--erro); }
 .acoes-notas .perigo:hover:enabled { border-color:var(--erro); }
-.campo-notas { position:relative; }
-#notas { height:calc(15em + 40px); min-height:calc(15em + 40px); resize:none; padding-bottom:29px; scrollbar-gutter:stable; font-family:"Cascadia Code",Consolas,monospace; border-color:var(--foco); box-shadow:0 0 7px color-mix(in srgb,var(--foco) 45%,transparent); transition:border-color 180ms ease-in-out,box-shadow 180ms ease-in-out; }
+/* O campo cede altura antes que os controles obriguem a página a rolar. */
+.campo-notas { position:relative; flex:1; min-height:calc(1.5em + 40px); max-height:calc(15em + 40px); }
+#notas { position:absolute; inset:0; height:100%; min-height:0; resize:none; padding-bottom:29px; scrollbar-gutter:stable; font-family:"Cascadia Code",Consolas,monospace; border-color:var(--foco); box-shadow:0 0 7px color-mix(in srgb,var(--foco) 45%,transparent); transition:border-color 180ms ease-in-out,box-shadow 180ms ease-in-out; }
 .contagem-notas { position:absolute; right:24px; bottom:7px; color:var(--secundario); background:transparent; font-size:12px; font-variant-numeric:tabular-nums; pointer-events:none; }
 #notas:focus,#notas:not(:placeholder-shown) { border-color:var(--linha); box-shadow:none; outline:none; }
 .campo-pasta { display:flex; align-items:center; gap:6px; }
 .campo-pasta input { flex:1; }
 .campo-pasta button { flex-shrink:0; }
-.ajuda-acoes { margin-top:10px; padding:3px 0; min-height:30px; border:0; background:transparent; color:var(--secundario); font-size:12px; }
+.ajuda-acoes { align-self:flex-start; flex-shrink:0; margin-top:10px; padding:3px 0; min-height:30px; border:0; background:transparent; color:var(--secundario); font-size:12px; }
 .ajuda-acoes:hover:enabled { color:var(--destaque); background:transparent; }
 dialog { width:min(450px,calc(100% - 32px)); max-height:calc(100dvh - 32px); padding:20px; border:1px solid var(--linha); border-radius:9px; background:var(--superficie); color:var(--texto); overflow-y:auto; }
 dialog::backdrop { background:#0007; }
@@ -98,7 +100,8 @@ dialog p { margin-top:12px; font-size:13px; }
 #notas-nao-encontradas:not(:empty) { margin:0 0 14px; }
 pre { font:12px/1.7 "Cascadia Code",Consolas,monospace; white-space:pre-wrap; overflow-wrap:anywhere; margin:0; }
 #logs:not(:empty) { padding-top:12px; border-top:1px solid var(--linha); }
-footer { display:flex; align-items:center; justify-content:space-between; flex-shrink:0; gap:12px; min-height:44px; padding-block:0; margin-top:12px; border-top:1px solid var(--linha); font-size:11px; color:var(--secundario); }
+/* A linha cobre a janela; os textos seguem a largura e as margens do conteúdo. */
+footer { display:flex; align-items:center; justify-content:space-between; flex-shrink:0; gap:12px; max-width:none; min-height:44px; padding-block:0; padding-inline:max(24px,calc((100% - 1220px)/2 + 24px)); margin-top:12px; border-top:1px solid var(--linha); font-size:11px; color:var(--secundario); }
 #encerrar { padding:4px 0; border:0; background:transparent; color:var(--secundario); font-size:12px; }
 
 .rotulo-ajuda { position:relative; display:table; margin:16px 0 7px; }
@@ -124,14 +127,15 @@ footer { display:flex; align-items:center; justify-content:space-between; flex-s
 @keyframes tema-icone-claro { from { transform:rotate(-24deg); } to { transform:rotate(0); } }
 @keyframes tema-icone-escuro { from { transform:rotate(24deg); } to { transform:rotate(0); } }
 @media (prefers-reduced-motion:reduce) { #notas { transition:none; } }
-@media (min-width:760px) and (max-width:1000px),(max-width:430px) { .contagens { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (min-width:701px) and (max-width:1000px),(max-width:430px) { .contagens { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media (pointer:coarse) { button,.botao-icone,.configuracoes summary,.acoes-notas button { min-width:44px; min-height:44px; } }
-@media (max-width:760px) {
-  body { height:auto; min-height:100%; overflow:auto; }
+@media (max-width:700px) {
+  body { height:auto; min-height:100%; }
   header,main,footer { padding-inline:18px; }
   main { flex:1 0 auto; }
   .painel { flex:none; grid-template-columns:minmax(0,1fr); gap:20px; }
   .preparacao { overflow:visible; padding:0; }
+  .campo-notas { flex:none; min-height:calc(15em + 40px); }
   .acompanhamento { contain:none; padding:16px 0 0; border-left:0; border-top:1px solid var(--linha); min-height:150px; }
   .rolagem-resultados { overflow:visible; padding-right:0; }
   .menu-configuracoes { max-height:calc(100dvh - 150px); }
@@ -145,4 +149,5 @@ footer { display:flex; align-items:center; justify-content:space-between; flex-s
   .campo-pasta { flex-wrap:wrap; }
   .campo-pasta input { flex-basis:100%; }
   input,textarea { font-size:16px; }
+  .campo-notas { font-size:16px; }
 }
