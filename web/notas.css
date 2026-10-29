@@ -58,12 +58,16 @@ label { display:block; font-weight:500; margin:14px 0 7px; }
 #tema::before { content:""; width:24px; height:24px; background:currentColor; mask:url('/icons/tema-lua.svg') center / contain no-repeat; }
 :root[data-tema=escuro] #tema::before { mask-image:url('/icons/tema-lua-sol.svg'); }
 .configuracoes { position:relative; }
+.configuracoes:not([open]) .menu-configuracoes { display:none; }
+/* O menu recolhido deve abrir nas cores atuais, sem transicoes adiadas pelo details. */
+:root[data-tema-animado] .menu-configuracoes,
+:root[data-tema-animado] .menu-configuracoes * { transition:none; }
 .configuracoes summary { display:flex; list-style:none; cursor:pointer; min-height:40px; padding:8px; border:1px solid var(--linha); border-radius:7px; background:var(--superficie); }
 .configuracoes summary:hover { background:var(--suave); border-color:var(--destaque); }
 .controles-cabecalho #tema, .controles-cabecalho #tema:hover:enabled,
 .configuracoes summary, .configuracoes summary:hover { border-color:var(--contorno-controle); }
 .configuracoes summary::-webkit-details-marker { display:none; }
-.menu-configuracoes { position:absolute; top:calc(100% + 8px); right:0; z-index:5; width:min(450px,calc(100vw - 48px)); max-height:calc(100dvh - 120px); overflow-y:auto; padding:16px; border:1px solid var(--linha); border-radius:8px; background:var(--superficie); box-shadow:0 4px 16px #0002; }
+.menu-configuracoes { position:absolute; top:calc(100% + 8px); right:0; z-index:5; width:min(450px,calc(100vw - 48px)); max-height:calc(100dvh - 120px); overflow-y:auto; padding:16px; border:1px solid var(--linha); border-radius:8px; background:var(--superficie); color:var(--texto); box-shadow:0 4px 16px #0002; }
 
 /* A preparação define a altura mínima; só os resultados têm rolagem própria. */
 .painel { display:grid; flex:1; min-height:min-content; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:28px; }
