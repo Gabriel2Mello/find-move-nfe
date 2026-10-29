@@ -81,6 +81,79 @@ class TestOperacoes(unittest.TestCase):
         self.assertTrue(arquivo.exists())
         self.assertEqual(alvo.read_bytes(), b'arquivada')
 
+    def test_buscar_e_depois_mover_conta_so_ano_atual_com_mesmos_numeros_em_ano_anterior(self):
+        arquivos = []
+        numeros = {str(n) for n in range(8418, 8426)}
+        for numero in sorted(numeros):
+            arquivos.append(self.arquivo(f'{self.ano}/OUTUBRO/Nfe00{numero}4.pdf', 1))
+            arquivos.append(self.arquivo(f'{self.ano}/OUTUBRO/NFe' + '0' * 30 + numero + '0' * 10 + '.xml', 3))
+        ano_anterior = str(int(self.ano) - 1)
+        for numero in sorted(numeros):
+            if numero not in ('8423', '8425'):
+                arquivos.append(self.arquivo(f'{ano_anterior}/FEVEREIRO/Nfe00{numero}4.pdf', 0))
+            arquivos.append(self.arquivo(f'{ano_anterior}/FEVEREIRO/NFe' + '0' * 30 + numero + '0' * 10 + '.xml', 2))
+        anteriores = {p: (p.read_bytes(), p.stat().st_mtime_ns) for p in arquivos}
+        executar('buscar', numeros, self.pastas, self.destino, relatar=lambda texto: None)
+        self.assertEqual(len(list(self.destino.iterdir())), 16)
+        logs, estados = [], []
+        with patch('operacoes._mover_sem_substituir') as mover, patch('operacoes._registrar_conclusao') as registrar, patch('operacoes.walk', wraps=os.walk) as percorrer:
+            resultado = executar('mover', numeros, self.pastas, self.destino,
+                                 relatar=logs.append, progresso=estados.append)
+            mover.assert_not_called()
+            registrar.assert_not_called()
+            self.assertTrue(all(ano_anterior not in Path(chamada.args[0]).parts for chamada in percorrer.call_args_list))
+        self.assertEqual(resultado['nao_encontradas'], [])
+        self.assertEqual([resultado[c] for c in ('encontrados', 'concluidos', 'ignorados', 'erros')], [16, 0, 16, 0])
+        self.assertEqual(len(logs), 16)
+        self.assertTrue(all(texto.startswith('Já organizado na origem:') for texto in logs))
+        self.assertEqual(estados[-1]['ignorados'], 16)
+        for arquivo, estado in anteriores.items():
+            self.assertEqual((arquivo.read_bytes(), arquivo.stat().st_mtime_ns), estado)
+            self.assertFalse((arquivo.parent / self.ano).exists())
+
+    def test_mover_organiza_pdf_xml_pendentes_com_modificacao_do_ano_anterior(self):
+        arquivos = [self.arquivo('Nfe12341.pdf'),
+                    self.arquivo('NFe' + '0' * 30 + '1234' + '0' * 10 + '.xml', 2)]
+        ano_anterior = int(self.ano) - 1
+        instante = datetime(ano_anterior, 2, 10, 12).timestamp()
+        for arquivo in arquivos:
+            os.utime(arquivo, (instante, instante))
+        resultado = self.executar('mover')
+        self.assertEqual(resultado['concluidos'], 2)
+        self.assertEqual(resultado['ignorados'], 0)
+        self.assertEqual(resultado['nao_encontradas'], [])
+        for arquivo in arquivos:
+            alvo = arquivo.parent / str(ano_anterior) / 'FEVEREIRO' / arquivo.name
+            self.assertFalse(arquivo.exists())
+            self.assertEqual(alvo.read_bytes(), b'nota sintetica')
+
+    def test_mover_distingue_arquivo_pendente_organizado_e_nota_ausente(self):
+        pendente = self.arquivo('Nfe12341.pdf')
+        organizado = self.arquivo(f'{self.ano}/JANEIRO/Nfe56781.pdf')
+        self.arquivo(f'{self.ano}/OUTROS/Nfe99991.pdf')
+        self.arquivo(f'{self.ano}/Nfe99992.pdf')
+        self.arquivo(f'{int(self.ano) - 1}/FEVEREIRO/Nfe99993.pdf')
+        resultado = executar('mover', {'1234', '5678', '9999'}, self.pastas, self.destino,
+                             relatar=lambda texto: None)
+        self.assertEqual(resultado['nao_encontradas'], ['9999'])
+        self.assertEqual([resultado[c] for c in ('encontrados', 'concluidos', 'ignorados', 'erros')], [2, 1, 1, 0])
+        self.assertFalse(pendente.exists())
+        self.assertTrue(organizado.exists())
+
+    def test_parada_interrompe_consulta_de_notas_ja_organizadas(self):
+        for numero in ('1234', '5678'):
+            self.arquivo(f'{self.ano}/OUTUBRO/Nfe{numero}1.pdf')
+        cancelar = Event()
+        def relatar(texto):
+            if texto.startswith('Já organizado na origem:'):
+                cancelar.set()
+        resultado = executar('mover', {'1234', '5678'}, self.pastas, self.destino,
+                             cancelar=cancelar, relatar=relatar)
+        self.assertTrue(resultado['cancelado'])
+        self.assertEqual(resultado['ignorados'], 1)
+        self.assertEqual(resultado['concluidos'], 0)
+        self.assertEqual(len(resultado['nao_encontradas']), 1)
+
     def test_progresso_das_transferencias_publica_totais_independentes(self):
         import operacoes
         for indice, acao in enumerate(('buscar', 'mover')):

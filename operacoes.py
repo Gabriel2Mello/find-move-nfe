@@ -209,6 +209,7 @@ def executar(acao, numeros, pastas, destino, *, cancelar=None, relatar=print, fo
         raise ValueError('Ação inválida.')
     resumo = dict(encontrados=0, concluidos=0, ignorados=0, erros=0, cancelado=False)
     achadas, visitados = set(), set()
+    pastas_organizadas = []
     ano = str(datetime.now().year)
 
     def atualizar():
@@ -235,6 +236,7 @@ def executar(acao, numeros, pastas, destino, *, cancelar=None, relatar=print, fo
                 if acao == 'buscar' and root == base:
                     dirs[:] = [d for d in dirs if d == ano]
                 elif acao == 'mover':
+                    pastas_organizadas.extend(root / d for d in dirs if d == ano)
                     dirs[:] = [d for d in dirs if not d.isdigit()]
                 for arquivo in arquivos:
                     if cancelar is not None and cancelar.is_set():
@@ -296,6 +298,46 @@ def executar(acao, numeros, pastas, destino, *, cancelar=None, relatar=print, fo
             relatar(f'Erro em {arquivo}: {erro}')
         finally:
             atualizar()
+    # Consulta somente o ano atual, como Buscar, sem movimentar o arquivo
+    # novamente nem contar notas de outros anos com a mesma numeração.
+    pendentes = numeros - achadas
+    if acao == 'mover' and pendentes and not resumo['cancelado']:
+        for pasta_ano in dict.fromkeys(pastas_organizadas):
+            if cancelar is not None and cancelar.is_set():
+                resumo['cancelado'] = True
+                break
+            if pasta_ano.is_symlink():
+                continue
+            for raiz, dirs, arquivos in walk(pasta_ano, onerror=erro_caminho, followlinks=False):
+                if cancelar is not None and cancelar.is_set():
+                    resumo['cancelado'] = True
+                    break
+                root = Path(raiz)
+                if root == destino or root.is_relative_to(destino):
+                    dirs[:] = []
+                    continue
+                if root == pasta_ano:
+                    dirs[:] = [d for d in dirs if d.upper() in MONTHS[1:]]
+                    continue
+                dirs[:] = []
+                for arquivo in arquivos:
+                    if cancelar is not None and cancelar.is_set():
+                        resumo['cancelado'] = True
+                        break
+                    nome = arquivo.lower()
+                    if not nome.startswith('nfe'):
+                        continue
+                    numero = pdf_number(nome) if nome.endswith('.pdf') else xml_number(nome) if nome.endswith('.xml') else None
+                    source = root / arquivo
+                    if numero not in pendentes or source in visitados:
+                        continue
+                    visitados.add(source)
+                    achadas.add(numero)
+                    resumo['encontrados'] += 1
+                    resumo['ignorados'] += 1
+                    caminho_log = formatar_caminho(source) if formatar_caminho is not None else str(source)
+                    relatar(f'Já organizado na origem: {caminho_log}')
+                    atualizar()
     resumo['nao_encontradas'] = sorted(numeros - achadas)
     return resumo
 
