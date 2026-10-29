@@ -378,17 +378,6 @@ test('abertura inicia notas vazias mesmo se um backend anterior devolver conteú
   assert.equal(ui.elemento('notas').value, '7; 25', 'atualizações preservam a edição manual');
 });
 
-test('tooltip do destino fecha com Escape e reabre por mouse ou foco', () => {
-  const ui = interfaceTeste(), dica = ui.elemento('dica-destino');
-  ui.eventos.get('keydown')({key:'Escape'});
-  assert.equal(dica.dataset.fechada, 'true');
-  dica.eventos.get('focusin')();
-  assert.equal(dica.dataset.fechada, undefined);
-  ui.eventos.get('keydown')({key:'Escape'});
-  dica.eventos.get('mouseenter')();
-  assert.equal(dica.dataset.fechada, undefined);
-});
-
 test('configurações fecham por Escape, clique ou foco externo e preservam interação interna', () => {
   const ui = interfaceTeste(), menu = ui.elemento('configuracoes');
   const interno = ui.elemento('caminho-0'), externo = ui.elemento('notas');

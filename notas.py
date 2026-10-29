@@ -359,6 +359,7 @@ class Handler(BaseHTTPRequestHandler):
         else:
             arquivos = {'/notas.css': ('web/notas.css', 'text/css; charset=utf-8'),
                         '/notas.js': ('web/notas.js', 'text/javascript; charset=utf-8'),
+                        '/rolagem.js': ('web/rolagem.js', 'text/javascript; charset=utf-8'),
                         '/nunes-tema.js': ('web/nunes-tema.js', 'text/javascript; charset=utf-8'),
                         '/nunes-assinatura.css': ('web/nunes-assinatura.css', 'text/css; charset=utf-8'),
                         '/icone.svg': ('icons/icone.svg', 'image/svg+xml'),

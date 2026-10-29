@@ -37,11 +37,8 @@ $('notas').addEventListener('input', () => {
   atualizarContagemNotas();
 });
 atualizarContagemNotas();
-const dicaDestino = $('dica-destino');
-for (const evento of ['mouseenter', 'focusin']) dicaDestino.addEventListener(evento, () => {delete dicaDestino.dataset.fechada;});
 window.addEventListener('keydown', evento => {
   if (evento.key === 'Escape') {
-    dicaDestino.dataset.fechada = 'true';
     $('configuracoes').open = false;
   }
 });

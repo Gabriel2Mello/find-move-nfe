@@ -105,7 +105,7 @@ class TestOperacoes(unittest.TestCase):
         self.assertEqual(resultado['nao_encontradas'], [])
         self.assertEqual([resultado[c] for c in ('encontrados', 'concluidos', 'ignorados', 'erros')], [16, 0, 16, 0])
         self.assertEqual(len(logs), 16)
-        self.assertTrue(all(texto.startswith('Já organizado na origem:') for texto in logs))
+        self.assertTrue(all(texto.startswith('Já organizado:') for texto in logs))
         self.assertEqual(estados[-1]['ignorados'], 16)
         for arquivo, estado in anteriores.items():
             self.assertEqual((arquivo.read_bytes(), arquivo.stat().st_mtime_ns), estado)
@@ -145,7 +145,7 @@ class TestOperacoes(unittest.TestCase):
             self.arquivo(f'{self.ano}/OUTUBRO/Nfe{numero}1.pdf')
         cancelar = Event()
         def relatar(texto):
-            if texto.startswith('Já organizado na origem:'):
+            if texto.startswith('Já organizado:'):
                 cancelar.set()
         resultado = executar('mover', {'1234', '5678'}, self.pastas, self.destino,
                              cancelar=cancelar, relatar=relatar)
@@ -254,7 +254,7 @@ class TestServidor(unittest.TestCase):
         self.assertIn(self.servidor.token.encode(), html)
         self.assertIn(b'Gabriel2Mello', html)
         self.assertEqual(html.count(b'class="traco"'), 2)
-        for recurso in ('/notas.css', '/nunes-assinatura.css', '/nunes-tema.js', '/notas.js', '/icone.svg', '/favicon.ico',
+        for recurso in ('/notas.css', '/nunes-assinatura.css', '/nunes-tema.js', '/notas.js', '/rolagem.js', '/icone.svg', '/favicon.ico',
                         '/icons/tema-lua.svg', '/icons/tema-lua-sol.svg'):
             self.assertEqual(self.pedido('GET', recurso)[0], 200)
         for nome in ('tema-lua.svg', 'tema-lua-sol.svg'):
@@ -263,6 +263,9 @@ class TestServidor(unittest.TestCase):
         self.assertEqual(self.pedido('GET', '/icons/../notas.py')[0], 404)
         self.assertEqual(self.pedido('GET', '/../../notas.py')[0], 404)
         self.assertLess(html.index(b'/nunes-tema.js'), html.index(b'/notas.js'))
+        self.assertLess(html.index(b'/notas.js'), html.index(b'/rolagem.js'))
+        self.assertEqual(self.pedido('GET', '/rolagem.js')[1],
+                         (Path(__file__).resolve().parents[1] / 'web/rolagem.js').read_bytes())
         conexao = http.client.HTTPConnection('127.0.0.1', self.servidor.server_port, timeout=3)
         self.addCleanup(conexao.close)
         conexao.request('GET', '/nunes-tema.js')

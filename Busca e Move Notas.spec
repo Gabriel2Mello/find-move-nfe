@@ -4,7 +4,7 @@ from pathlib import Path
 raiz = Path(SPECPATH)
 a = Analysis([str(raiz / 'notas.py')], pathex=[str(raiz)],
     datas=[(str(raiz / 'web' / nome), 'web') for nome in
-           ('index.html', 'notas.css', 'notas.js', 'nunes-tema.js', 'nunes-assinatura.css')]
+           ('index.html', 'notas.css', 'notas.js', 'rolagem.js', 'nunes-tema.js', 'nunes-assinatura.css')]
           + [(str(raiz / 'icons' / nome), 'icons') for nome in
              ('icone.ico', 'icone.svg', 'icone-192.png', 'icone-512.png', 'tema-lua.svg', 'tema-lua-sol.svg')]
           + [(str(raiz / 'desktop-winforms.config'), '.')],

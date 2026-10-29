@@ -336,7 +336,7 @@ def executar(acao, numeros, pastas, destino, *, cancelar=None, relatar=print, fo
                     resumo['encontrados'] += 1
                     resumo['ignorados'] += 1
                     caminho_log = formatar_caminho(source) if formatar_caminho is not None else str(source)
-                    relatar(f'Já organizado na origem: {caminho_log}')
+                    relatar(f'Já organizado: {caminho_log}')
                     atualizar()
     resumo['nao_encontradas'] = sorted(numeros - achadas)
     return resumo
