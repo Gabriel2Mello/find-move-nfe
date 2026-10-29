@@ -20,10 +20,10 @@
         <summary class="botao-icone" title="Configurações" aria-label="Configurações"><svg class="icone-controle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h9m4 0h3M4 17h3m4 0h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></summary>
         <div class="menu-configuracoes">
           <h2>Pastas de origem</h2><p class="ajuda">Carregadas deste computador. Ajustes valem somente nesta janela.</p>
-          <label for="caminho-0">DANFE · Matriz</label><div class="campo-pasta"><input id="caminho-0" type="text" spellcheck="false"><button type="button" data-campo="caminho-0" aria-label="Alterar origem DANFE Matriz" hidden>Alterar</button><button type="button" data-abrir="caminho-0" aria-label="Abrir origem DANFE Matriz" hidden>Abrir</button></div>
-          <label for="caminho-1">DANFE · Filial</label><div class="campo-pasta"><input id="caminho-1" type="text" spellcheck="false"><button type="button" data-campo="caminho-1" aria-label="Alterar origem DANFE Filial" hidden>Alterar</button><button type="button" data-abrir="caminho-1" aria-label="Abrir origem DANFE Filial" hidden>Abrir</button></div>
-          <label for="caminho-2">XML · Matriz</label><div class="campo-pasta"><input id="caminho-2" type="text" spellcheck="false"><button type="button" data-campo="caminho-2" aria-label="Alterar origem XML Matriz" hidden>Alterar</button><button type="button" data-abrir="caminho-2" aria-label="Abrir origem XML Matriz" hidden>Abrir</button></div>
-          <label for="caminho-3">XML · Filial</label><div class="campo-pasta"><input id="caminho-3" type="text" spellcheck="false"><button type="button" data-campo="caminho-3" aria-label="Alterar origem XML Filial" hidden>Alterar</button><button type="button" data-abrir="caminho-3" aria-label="Abrir origem XML Filial" hidden>Abrir</button></div>
+          <label for="caminho-0">DANFE · Matriz</label><div class="campo-pasta"><input id="caminho-0" type="text" readonly spellcheck="false"><button type="button" data-campo="caminho-0" aria-label="Alterar origem DANFE Matriz" hidden>Alterar</button><button type="button" data-abrir="caminho-0" aria-label="Abrir origem DANFE Matriz" hidden>Abrir</button></div>
+          <label for="caminho-1">DANFE · Filial</label><div class="campo-pasta"><input id="caminho-1" type="text" readonly spellcheck="false"><button type="button" data-campo="caminho-1" aria-label="Alterar origem DANFE Filial" hidden>Alterar</button><button type="button" data-abrir="caminho-1" aria-label="Abrir origem DANFE Filial" hidden>Abrir</button></div>
+          <label for="caminho-2">XML · Matriz</label><div class="campo-pasta"><input id="caminho-2" type="text" readonly spellcheck="false"><button type="button" data-campo="caminho-2" aria-label="Alterar origem XML Matriz" hidden>Alterar</button><button type="button" data-abrir="caminho-2" aria-label="Abrir origem XML Matriz" hidden>Abrir</button></div>
+          <label for="caminho-3">XML · Filial</label><div class="campo-pasta"><input id="caminho-3" type="text" readonly spellcheck="false"><button type="button" data-campo="caminho-3" aria-label="Alterar origem XML Filial" hidden>Alterar</button><button type="button" data-abrir="caminho-3" aria-label="Abrir origem XML Filial" hidden>Abrir</button></div>
         </div>
       </details>
     </div>
@@ -35,9 +35,9 @@
         <section class="destino-copias" aria-label="Destino das cópias">
           <div id="dica-destino" class="rotulo-ajuda">
             <label for="destino" tabindex="0" aria-describedby="texto-dica-destino">Salvar cópias em</label>
-            <span id="texto-dica-destino" class="texto-dica" role="tooltip">A pasta é salva ao sair do campo ou encerrar.</span>
+            <span id="texto-dica-destino" class="texto-dica" role="tooltip">Use Alterar para escolher a pasta. A escolha é salva para as próximas aberturas.</span>
           </div>
-          <div class="campo-pasta"><input id="destino" type="text" spellcheck="false" aria-describedby="texto-dica-destino ajuda-destino"><button type="button" data-campo="destino" aria-label="Alterar pasta de cópias" hidden>Alterar</button><button type="button" data-abrir="destino" aria-label="Abrir pasta de cópias" hidden>Abrir</button></div>
+          <div class="campo-pasta"><input id="destino" type="text" readonly spellcheck="false" aria-describedby="texto-dica-destino ajuda-destino"><button type="button" data-campo="destino" aria-label="Alterar pasta de cópias" hidden>Alterar</button><button type="button" data-abrir="destino" aria-label="Abrir pasta de cópias" hidden>Abrir</button></div>
           <p class="ajuda" id="ajuda-destino" role="status"></p>
         </section>
         <section class="entrada" aria-labelledby="titulo-notas">

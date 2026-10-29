@@ -156,7 +156,7 @@ def caminho_resumido(arquivo, caminhos):
     return max(correspondencias, key=lambda item: item[0])[1] if correspondencias else str(arquivo)
 
 
-def _versoes_busca(grupos, destino, resumo, cancelar, relatar, formatar_caminho=None):
+def _versoes_busca(grupos, destino, resumo, cancelar, relatar, formatar_caminho=None, progresso=None):
     for candidatos in grupos.values():
         if cancelar is not None and cancelar.is_set():
             resumo['cancelado'] = True
@@ -188,6 +188,8 @@ def _versoes_busca(grupos, destino, resumo, cancelar, relatar, formatar_caminho=
                 versoes.append((emissao, estado[3], str(source), source, numero, estado))
             except (OSError, ValueError) as erro:
                 resumo['erros'] += 1
+                if progresso is not None:
+                    progresso(resumo.copy())
                 relatar(f'Não foi possível escolher a versão mais recente de {source.name}: {erro} '
                         'Nenhuma versão desse nome será copiada.')
                 break
@@ -201,7 +203,7 @@ def _versoes_busca(grupos, destino, resumo, cancelar, relatar, formatar_caminho=
             yield escolhida, numero, estado
 
 
-def executar(acao, numeros, pastas, destino, *, cancelar=None, relatar=print, formatar_caminho=None):
+def executar(acao, numeros, pastas, destino, *, cancelar=None, relatar=print, formatar_caminho=None, progresso=None):
     """Conclui o arquivo atual antes de atender a uma solicitação de parada."""
     if acao not in ('buscar', 'mover'):
         raise ValueError('Ação inválida.')
@@ -209,8 +211,15 @@ def executar(acao, numeros, pastas, destino, *, cancelar=None, relatar=print, fo
     achadas, visitados = set(), set()
     ano = str(datetime.now().year)
 
+    def atualizar():
+        if progresso is not None:
+            progresso(resumo.copy())
+
+    atualizar()
+
     def erro_caminho(erro):
         resumo['erros'] += 1
+        atualizar()
         relatar(f'Erro de acesso: {erro}')
 
     def localizar():
@@ -243,6 +252,7 @@ def executar(acao, numeros, pastas, destino, *, cancelar=None, relatar=print, fo
                     visitados.add(source)
                     achadas.add(numero)
                     resumo['encontrados'] += 1
+                    atualizar()
                     yield source, numero, None
 
     candidatos = localizar()
@@ -250,7 +260,7 @@ def executar(acao, numeros, pastas, destino, *, cancelar=None, relatar=print, fo
         grupos = {}
         for source, numero, _ in candidatos:
             grupos.setdefault(source.name.casefold(), []).append((source, numero))
-        candidatos = _versoes_busca(grupos, destino, resumo, cancelar, relatar, formatar_caminho)
+        candidatos = _versoes_busca(grupos, destino, resumo, cancelar, relatar, formatar_caminho, progresso)
         if not resumo['cancelado']:
             destino.mkdir(parents=True, exist_ok=True)
     for source, numero, estado in candidatos:
@@ -284,6 +294,8 @@ def executar(acao, numeros, pastas, destino, *, cancelar=None, relatar=print, fo
         except OSError as erro:
             resumo['erros'] += 1
             relatar(f'Erro em {arquivo}: {erro}')
+        finally:
+            atualizar()
     resumo['nao_encontradas'] = sorted(numeros - achadas)
     return resumo
 

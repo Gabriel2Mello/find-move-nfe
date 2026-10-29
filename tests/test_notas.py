@@ -81,6 +81,34 @@ class TestOperacoes(unittest.TestCase):
         self.assertTrue(arquivo.exists())
         self.assertEqual(alvo.read_bytes(), b'arquivada')
 
+    def test_progresso_das_transferencias_publica_totais_independentes(self):
+        import operacoes
+        for indice, acao in enumerate(('buscar', 'mover')):
+            with self.subTest(acao=acao):
+                base = self.pastas[indice]
+                arquivos = [self.arquivo(f'NFe1234{i}.pdf', indice) for i in (1, 2, 3)]
+                destino = self.raiz / ('destino-' + acao)
+                data = datetime.fromtimestamp(arquivos[1].stat().st_mtime)
+                alvo = destino if acao == 'buscar' else base / str(data.year) / MONTHS[data.month]
+                alvo.mkdir(parents=True)
+                (alvo / arquivos[1].name).write_bytes(b'preservar')
+                nome_funcao = '_copiar_verificado' if acao == 'buscar' else '_mover_sem_substituir'
+                transferir = getattr(operacoes, nome_funcao)
+                def simular(origem, alvo, **kwargs):
+                    if origem.name == arquivos[2].name:
+                        raise PermissionError('Falha sintética')
+                    return transferir(origem, alvo, **kwargs)
+                estados = []
+                with patch.object(operacoes, nome_funcao, side_effect=simular):
+                    resultado = executar(acao, {'1234'}, [base], destino, relatar=lambda texto: None,
+                                         progresso=estados.append)
+                self.assertEqual(estados[0]['encontrados'], 0)
+                self.assertEqual(estados[0]['concluidos'], 0)
+                self.assertTrue(any(e['encontrados'] > e['concluidos'] and not e['erros'] for e in estados))
+                self.assertEqual([estados[-1][c] for c in ('encontrados', 'concluidos', 'ignorados', 'erros')], [3, 1, 1, 1])
+                self.assertEqual(estados[-1]['concluidos'], resultado['concluidos'])
+                self.assertEqual((alvo / arquivos[1].name).read_bytes(), b'preservar')
+
     def test_validacao_antes_de_gravar(self):
         caminhos = [str(p) for p in self.pastas]
         for notas, pastas, destino in (('', caminhos, str(self.destino)),
@@ -236,13 +264,20 @@ class TestServidor(unittest.TestCase):
         entrou, liberar = Event(), Event()
         self.addCleanup(liberar.set)
         def lento(*args, **kwargs):
+            totais = dict(encontrados=3, concluidos=1, ignorados=1, erros=0)
+            kwargs['progresso'](totais)
+            totais['concluidos'] = 999
             entrou.set()
             liberar.wait(2)
             return {'concluidos': 0}
         with patch('notas.preparar', return_value=({'1234'}, [], Path('.'))), patch('notas.executar', lento):
-            self.servidor.iniciar({'acao': 'mover'})
+            self.servidor.iniciar({'acao': 'buscar'})
             self.assertTrue(entrou.wait(1))
             andamento = self.servidor.situacao()
+            self.assertEqual(andamento['andamento'], dict(encontrados=3, concluidos=1, ignorados=1, erros=0))
+            andamento['andamento']['concluidos'] = 999
+            self.assertEqual(self.servidor.situacao()['andamento']['concluidos'], 1)
+            self.assertIsNone(andamento['resultado'])
             self.assertGreater(andamento['versao'], inicial)
             self.servidor.relatar('Teste de progresso')
             self.assertGreater(self.servidor.situacao()['versao'], andamento['versao'])
@@ -252,6 +287,18 @@ class TestServidor(unittest.TestCase):
         self.assertFalse(fim['ocupado'])
         self.assertGreater(fim['versao'], andamento['versao'])
         self.assertEqual(self.servidor.situacao()['versao'], fim['versao'])
+
+    def test_movimento_reinicia_totais_da_busca_anterior_e_publica_progresso(self):
+        self.servidor.andamento = dict(encontrados=3, concluidos=3, ignorados=0, erros=0)
+        def executar_mock(*args, **kwargs):
+            self.assertEqual(self.servidor.situacao()['andamento'], dict.fromkeys(('encontrados', 'concluidos', 'ignorados', 'erros'), 0))
+            kwargs['progresso'](dict(encontrados=2, concluidos=1, ignorados=0, erros=0))
+            return dict(encontrados=2, concluidos=2, ignorados=0, erros=0)
+        with patch('notas.preparar', return_value=({'1234'}, [], Path('.'))), patch('notas.executar', side_effect=executar_mock):
+            self.servidor.iniciar({'acao':'mover'})
+            self.servidor.worker.join(3)
+        self.assertEqual(self.servidor.situacao()['andamento']['concluidos'], 1)
+        self.assertEqual(self.servidor.situacao()['resultado']['concluidos'], 2)
 
     def test_host_token_origin_e_tamanho(self):
         for headers in ({'Host':'externo.example'}, {'X-Notas-Token':'invalido'}, {'Origin':'https://externo.example'}, {'Content-Type':'text/plain'}):
@@ -276,6 +323,7 @@ class TestServidor(unittest.TestCase):
                 codigo, corpo = self.pedido('GET', '/api/estado')
                 self.assertEqual(codigo, 200)
                 self.assertTrue(json.loads(corpo)['ocupado'])
+                self.assertEqual(json.loads(corpo)['andamento'], dict.fromkeys(('encontrados', 'concluidos', 'ignorados', 'erros'), 0))
                 self.assertEqual(self.pedido('POST', '/api/iniciar', {'acao': 'mover'})[0], 400)
                 executar_mock.assert_not_called()
             finally:

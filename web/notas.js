@@ -168,7 +168,7 @@ function receber(estado) {
   }
   const recuperando = !conectado;
   conectado = true;
-  const assinatura = JSON.stringify([estado.ocupado, estado.encerrando, estado.acao, estado.logs, estado.resultado]);
+  const assinatura = JSON.stringify([estado.ocupado, estado.encerrando, estado.acao, estado.logs, estado.resultado, estado.andamento]);
   if (assinatura === assinaturaEstado && !recuperando) {botoes(); return true;}
   assinaturaEstado = assinatura;
   ocupado = estado.ocupado;
@@ -186,12 +186,14 @@ function receber(estado) {
     $('notas').value = '';
     atualizarContagemNotas();
   }
-  const temResumo = !!r && !r.erro;
+  const resumo = ocupado && ['buscar','mover'].includes(estado.acao) ? estado.andamento || {encontrados:0, concluidos:0, ignorados:0, erros:0} : r;
+  const temResumo = !!resumo && !resumo.erro;
   $('resumo').hidden = !temResumo;
+  $('resumo').dataset.finalizado = String(temResumo && !ocupado);
   for (const campo of ['encontrados','concluidos','ignorados','erros']) {
-    $('total-' + campo).textContent = temResumo ? r[campo] : '';
+    $('total-' + campo).textContent = temResumo ? resumo[campo] : '';
   }
-  $('notas-nao-encontradas').textContent = temResumo && r.nao_encontradas.length ? 'Notas não encontradas: ' + r.nao_encontradas.join(', ') : '';
+  $('notas-nao-encontradas').textContent = !ocupado && temResumo && r.nao_encontradas.length ? 'Notas não encontradas: ' + r.nao_encontradas.join(', ') : '';
   botoes();
   return true;
 }
@@ -217,6 +219,7 @@ async function iniciar(acao) {
   enviando = true; botoes();
   try {
     if (!await salvarDestino()) return;
+    $('resumo').dataset.finalizado = 'false';
     geracaoInicio++;
     inicioIncerto = true;
     await pedir('/api/iniciar', {acao, notas:$('notas').value, destino:$('destino').value, caminhos:[0,1,2,3].map(i => $('caminho-' + i).value)});
@@ -254,6 +257,7 @@ async function limparCopias() {
       return;
     }
     if (!confirm(`Excluir permanentemente ${plano.quantidade} arquivo(s) da pasta:\n${plano.destino}\n\nSubpastas e links serão preservados. Os arquivos não irão para a Lixeira. Ao concluir sem erros, o campo Notas também será esvaziado.`)) return;
+    $('resumo').dataset.finalizado = 'false';
     geracaoInicio++;
     inicioIncerto = true;
     await pedir('/api/limpar', {confirmacao:plano.confirmacao});

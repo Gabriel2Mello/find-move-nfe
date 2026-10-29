@@ -42,6 +42,7 @@ class Servidor(ThreadingHTTPServer):
         self.worker = None
         self.logs = deque(maxlen=300)
         self.resultado = None
+        self.andamento = None
         self.limpeza_pendente = None
         self.acao = ''
         self.versao = 0
@@ -54,7 +55,8 @@ class Servidor(ThreadingHTTPServer):
     def situacao(self):
         with self.mutex:
             return dict(ocupado=self.ocupado, encerrando=self.encerrando, paginas=len(self.paginas),
-                        versao=self.versao, acao=self.acao, logs=list(self.logs), resultado=self.resultado)
+                        versao=self.versao, acao=self.acao, logs=list(self.logs), resultado=self.resultado,
+                        andamento=self.andamento.copy() if self.andamento is not None else None)
 
     def configuracao(self):
         with self.mutex:
@@ -111,6 +113,13 @@ class Servidor(ThreadingHTTPServer):
             self.logs.append(texto)
             self.versao += 1
 
+    def atualizar_andamento(self, resumo):
+        totais = {campo: resumo[campo] for campo in ('encontrados', 'concluidos', 'ignorados', 'erros')}
+        with self.mutex:
+            if totais != self.andamento:
+                self.andamento = totais
+                self.versao += 1
+
     def iniciar(self, dados):
         with self.mutex:
             if self.ocupado or self.encerrando or self.configurando:
@@ -126,6 +135,7 @@ class Servidor(ThreadingHTTPServer):
             self.cancelar.clear()
             self.logs.clear()
             self.resultado = None
+            self.andamento = dict.fromkeys(('encontrados', 'concluidos', 'ignorados', 'erros'), 0)
             self.acao = acao
             self.versao += 1
             self.worker = Thread(target=self.trabalhar,
@@ -170,6 +180,7 @@ class Servidor(ThreadingHTTPServer):
             self.cancelar.clear()
             self.logs.clear()
             self.resultado = None
+            self.andamento = None
             self.acao = 'limpar'
             self.versao += 1
             self.worker = Thread(target=self.trabalhar_limpeza, args=(configurado, plano))
@@ -205,7 +216,8 @@ class Servidor(ThreadingHTTPServer):
                                  cancelado=True, nao_encontradas=sorted(numeros))
             else:
                 resultado = executar(acao, numeros, pastas, destino, cancelar=self.cancelar, relatar=self.relatar,
-                                     formatar_caminho=lambda arquivo: caminho_resumido(arquivo, caminhos))
+                                     formatar_caminho=lambda arquivo: caminho_resumido(arquivo, caminhos),
+                                     progresso=self.atualizar_andamento)
         except Exception as erro:
             self.relatar(f'Não foi possível concluir: {erro}')
             resultado = {'erro': str(erro)}

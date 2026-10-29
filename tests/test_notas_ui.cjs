@@ -444,6 +444,83 @@ test('cartões refletem todos os totais e preservam notas não encontradas e reg
   }
 });
 
+test('busca e movimento mostram cartões em andamento; limpeza conserva apenas o resumo final', () => {
+  for (const acao of ['buscar','mover','limpar']) {
+    const ui = interfaceTeste();
+    const estado = {versao:1, ocupado:true, encerrando:false, acao, logs:[], resultado:null};
+    ui.elemento('notas').value = '1234';
+    ui.receber(estado);
+    if (acao === 'limpar') {
+      assert.equal(ui.elemento('resumo').hidden, true);
+      ui.receber({...estado, versao:2, andamento:{encontrados:6, concluidos:2, ignorados:0, erros:0}});
+      assert.equal(ui.elemento('resumo').hidden, true);
+      ui.receber({...estado, versao:3, ocupado:false, resultado:{encontrados:6, concluidos:6, ignorados:0, erros:0, nao_encontradas:[]}});
+      assert.equal(ui.elemento('resumo').hidden, false);
+      assert.equal(ui.elemento('total-concluidos').textContent, 6);
+      assert.equal(ui.elemento('resumo').dataset.finalizado, 'true');
+      continue;
+    }
+    assert.equal(ui.elemento('resumo').hidden, false);
+    assert.equal(ui.elemento('resumo').dataset.finalizado, 'false');
+    for (const campo of ['encontrados','concluidos','ignorados','erros']) assert.equal(ui.elemento('total-' + campo).textContent, 0);
+    const andamento = {encontrados:6, concluidos:2, ignorados:1, erros:1};
+    ui.receber({...estado, versao:2, andamento});
+    for (const [campo, valor] of Object.entries(andamento)) assert.equal(ui.elemento('total-' + campo).textContent, valor);
+    assert.equal(ui.elemento('resumo').dataset.finalizado, 'false');
+    assert.equal(ui.elemento('notas').value, '1234');
+    ui.receber(estado);
+    assert.equal(ui.elemento('total-concluidos').textContent, 2);
+    ui.receber({...estado, versao:3, ocupado:false, andamento, resultado:{...andamento, concluidos:4, nao_encontradas:[], cancelado:true}});
+    assert.equal(ui.elemento('total-concluidos').textContent, 4);
+    assert.equal(ui.elemento('resumo').dataset.finalizado, 'true');
+    ui.receber({...estado, versao:4});
+    assert.equal(ui.elemento('total-concluidos').textContent, 0);
+    assert.equal(ui.elemento('resumo').dataset.finalizado, 'false');
+  }
+});
+
+test('cartões destacam apenas resultado final e ignoram estados antigos', () => {
+  const ui = interfaceTeste();
+  const resultado = {encontrados:2, concluidos:1, ignorados:0, erros:1, nao_encontradas:[]};
+  const estado = {versao:1, ocupado:true, encerrando:false, acao:'buscar', logs:[], resultado};
+  ui.receber(estado);
+  assert.equal(ui.elemento('resumo').dataset.finalizado, 'false');
+  for (const fim of [resultado, {...resultado, erros:0}, {...resultado, cancelado:true}]) {
+    ui.receber({...estado, versao:2, ocupado:false, resultado:fim});
+    assert.equal(ui.elemento('resumo').dataset.finalizado, 'true');
+    ui.receber(estado);
+    assert.equal(ui.elemento('resumo').dataset.finalizado, 'true');
+  }
+  ui.receber({...estado, versao:3, resultado:null});
+  assert.equal(ui.elemento('resumo').dataset.finalizado, 'false');
+  for (const resultado of [null, {erro:'Falha sintética'}]) {
+    ui.receber({...estado, versao:4, ocupado:false, resultado});
+    assert.equal(ui.elemento('resumo').dataset.finalizado, 'false');
+  }
+});
+
+test('Buscar, Mover e Limpar retiram destaque dos cartões antes de enviar a execução', async () => {
+  for (const acao of ['buscar','mover','limpar']) {
+    let enviado = false;
+    const ui = interfaceTeste({fetch:rota => {
+      if (rota === '/api/preparar-limpeza') return Promise.resolve(resposta({quantidade:1, destino:'C:\\Teste', confirmacao:'sintetica'}));
+      if (rota === '/api/iniciar' || rota === '/api/limpar') {
+        assert.equal(ui.elemento('resumo').dataset.finalizado, 'false');
+        enviado = true;
+        return Promise.resolve(resposta({ok:true}));
+      }
+      if (rota === '/api/estado') return Promise.resolve(resposta({...estadoOcioso, versao:2, ocupado:true, acao}));
+      return pendente();
+    }});
+    ui.avaliar("carregado = true; destinoSalvo = '';");
+    ui.receber({...estadoOcioso, resultado:{encontrados:1, concluidos:1, ignorados:0, erros:0, nao_encontradas:[]}});
+    assert.equal(ui.elemento('resumo').dataset.finalizado, 'true');
+    await ui.elemento(acao).eventos.get('click')();
+    assert.equal(enviado, true);
+    assert.equal(ui.elemento('resumo').dataset.finalizado, 'false');
+  }
+});
+
 test('ajuda abre e fecha sem alterar notas ou iniciar uma operação', () => {
   const pedidos=[];
   const ui=interfaceTeste({fetch:rota=>{pedidos.push(rota);return pendente();}});
