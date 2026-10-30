@@ -93,7 +93,10 @@ X ocioso salva a edição de destino e encerra. X durante processamento confirma
 uma vez; cancelar mantém a execução; confirmar pede parada após concluir o
 arquivo em andamento. **Encerrar** confirma na própria tela e Hub confirma no
 monitor, sem repetição de confirmação na janela. O título indica encerramento.
-A saída aguarda worker e sincronizador antes de liberar recursos/exclusividade.
+A janela fecha após salvar as preferências e concluir o arquivo em andamento,
+sem aguardar a tentativa final de sincronização das estatísticas. O processo
+conclui essa sincronização em segundo plano antes de liberar recursos e a
+exclusividade da instância. Pendências permanecem salvas para novo envio.
 A preparação de Buscar/Mover consulta as pastas fora da trava da janela e do
 estado. X, Parar e Hub podem solicitar a parada durante essa consulta; quando
 ela retornar, nenhuma transferência começa se houver parada solicitada.

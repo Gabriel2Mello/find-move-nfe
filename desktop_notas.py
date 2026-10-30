@@ -98,6 +98,7 @@ class Janela:
     self.servidor = servidor
     self.ativar = Event()
     self.fechada = Event()
+    self.pronto_para_fechar = Event()
     self.erro = None
     self.liberar = False
     self.janela = None
@@ -242,7 +243,7 @@ class Janela:
     def acompanhar():
       try:
         if not self.aguardar(janela.events.shown):
-          self.servidor.finalizado.wait()
+          self.pronto_para_fechar.wait()
           self.liberar = True
           janela.destroy()
           return
@@ -259,7 +260,7 @@ class Janela:
             janela.set_title('Busca e Move Notas · Encerrando — aguarde a operação atual')
             if carregou:
               janela.evaluate_js('pedir("/api/estado").then(receber).catch(() => {})')
-          if self.servidor.finalizado.is_set():
+          if self.pronto_para_fechar.is_set():
             self.liberar = True
             janela.destroy()
             return
@@ -271,7 +272,7 @@ class Janela:
           self.erro = erro
           self.servidor.encerrar()
           # Mesmo uma falha da GUI aguarda o executor alcançar a fronteira segura.
-          self.servidor.finalizado.wait()
+          self.pronto_para_fechar.wait()
           self.liberar = True
           janela.destroy()
 
@@ -298,6 +299,8 @@ def executar(servidor, finalizar_sincronizador=lambda: None):
         servidor.worker.join()
       while servidor.configurando:
         time.sleep(.1)
+      # A GUI já pode sair; o processo e a exclusividade aguardam a sincronização.
+      janela.pronto_para_fechar.set()
       try:
         finalizar_sincronizador()
       except Exception as erro:
@@ -311,8 +314,6 @@ def executar(servidor, finalizar_sincronizador=lambda: None):
   thread.start()
   try:
     janela.executar()
-    if falhas:
-      raise RuntimeError('O backend da Busca e Move Notas encerrou com falha.') from falhas[0]
   finally:
     servidor.encerrar()
     if servidor.worker:
@@ -320,3 +321,5 @@ def executar(servidor, finalizar_sincronizador=lambda: None):
     servidor.shutdown()
     thread.join()
     servidor.desktop = None
+  if falhas:
+    raise RuntimeError('O backend da Busca e Move Notas encerrou com falha.') from falhas[0]

@@ -347,22 +347,94 @@ class TestCaminhos(unittest.TestCase):
                 janela.salvar_e_encerrar(nativa)
             self.assertTrue(servidor.encerrando)
 
-    def test_saida_aguarda_sincronizador_antes_de_liberar_janela(self):
+    def test_saida_libera_janela_mas_aguarda_sincronizador_e_exclusividade(self):
         with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {'NUNES_NOTAS_DADOS': temp}):
             servidor = Servidor(modo_desktop=True)
             self.addCleanup(servidor.server_close)
-            liberou = Event()
-            servidor.sincronizador = Mock(worker=Mock())
+            fechou_gui, iniciou_sincronizacao, liberar_sincronizacao = Event(), Event(), Event()
+            falhas = []
+            servidor.sincronizador = Mock(worker=Thread(target=liberar_sincronizacao.wait))
+            servidor.sincronizador.worker.start()
             def finalizar():
-                self.assertFalse(servidor.finalizado.is_set())
+                iniciou_sincronizacao.set()
             def entrou_gui(janela):
                 servidor.encerrar()
-                self.assertTrue(servidor.finalizado.wait(3))
-                servidor.sincronizador.worker.join.assert_called_once_with()
-                liberou.set()
+                if not janela.pronto_para_fechar.wait(3):
+                    raise RuntimeError('A janela aguardou a sincronização.')
+                fechou_gui.set()
+            def executar():
+                try:
+                    with IntegracaoLocal('find-move-nfe', desktop.NOME, False, Path(temp) / 'presenca',
+                                         sem_navegador=True):
+                        desktop.executar(servidor, finalizar)
+                except Exception as erro:
+                    falhas.append(erro)
             with patch.object(desktop.Janela, 'executar', entrou_gui):
-                desktop.executar(servidor, finalizar)
-            self.assertTrue(liberou.is_set())
+                processo = Thread(target=executar)
+                processo.start()
+                try:
+                    self.assertTrue(fechou_gui.wait(3))
+                    self.assertTrue(iniciou_sincronizacao.wait(3))
+                    self.assertFalse(servidor.finalizado.is_set())
+                    self.assertTrue(processo.is_alive())
+                    with self.assertRaises(ConflitoAplicacao):
+                        with IntegracaoLocal('find-move-nfe', desktop.NOME, False, Path(temp) / 'presenca'):
+                            pass
+                finally:
+                    liberar_sincronizacao.set()
+                    processo.join(5)
+                    servidor.sincronizador.worker.join(3)
+            self.assertFalse(processo.is_alive())
+            self.assertEqual(falhas, [])
+            self.assertTrue(servidor.finalizado.is_set())
+            self.assertIsNone(servidor.desktop)
+            with IntegracaoLocal('find-move-nfe', desktop.NOME, False, Path(temp) / 'presenca'):
+                pass
+
+    def test_liberacao_da_janela_aguarda_worker_e_preferencias(self):
+        for pendente in ('worker', 'preferencias'):
+            with self.subTest(pendente=pendente), tempfile.TemporaryDirectory() as temp, \
+                 patch.dict(os.environ, {'NUNES_NOTAS_DADOS': temp}):
+                servidor = Servidor(modo_desktop=True)
+                self.addCleanup(servidor.server_close)
+                liberar = Event()
+                if pendente == 'worker':
+                    servidor.worker = Thread(target=liberar.wait)
+                    servidor.worker.start()
+                else:
+                    servidor.configurando = True
+                def entrou_gui(janela):
+                    servidor.encerrar()
+                    try:
+                        self.assertFalse(janela.pronto_para_fechar.wait(.2))
+                    finally:
+                        liberar.set()
+                        with servidor.mutex:
+                            servidor.configurando = False
+                    self.assertTrue(janela.pronto_para_fechar.wait(3))
+                with patch.object(desktop.Janela, 'executar', entrou_gui):
+                    desktop.executar(servidor)
+                self.assertTrue(servidor.finalizado.is_set())
+
+    def test_falha_de_finalizacao_apos_fechar_gui_continua_reportada(self):
+        with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {'NUNES_NOTAS_DADOS': temp}):
+            servidor = Servidor(modo_desktop=True)
+            self.addCleanup(servidor.server_close)
+            fechou_gui = Event()
+            erro = OSError('Falha sintética na finalização.')
+            def finalizar():
+                if not fechou_gui.wait(3):
+                    raise RuntimeError('A GUI não foi liberada.')
+                raise erro
+            def entrou_gui(janela):
+                servidor.encerrar()
+                self.assertTrue(janela.pronto_para_fechar.wait(3))
+                fechou_gui.set()
+            with patch.object(desktop.Janela, 'executar', entrou_gui):
+                with self.assertRaises(RuntimeError) as falha:
+                    desktop.executar(servidor, finalizar)
+            self.assertIs(falha.exception.__cause__, erro)
+            self.assertTrue(servidor.finalizado.is_set())
             self.assertIsNone(servidor.desktop)
 
     def test_pacote_recursos_dados_e_override_independentes(self):
