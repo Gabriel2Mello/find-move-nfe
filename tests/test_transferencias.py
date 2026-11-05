@@ -261,7 +261,8 @@ class TestTransferencias(unittest.TestCase):
             self.assertEqual(console('buscar'), 1)
             (self.raiz / 'notas.txt').write_text('1234', encoding='utf-8')
             with patch('operacoes.preparar', return_value=({'1234'}, [self.raiz], self.raiz / 'destino')), \
-                    patch('operacoes.executar', return_value={'concluidos': 1, 'erros': 1}):
+                    patch('operacoes.executar', return_value={'concluidos': 1, 'erros': 1, 'cancelado': False,
+                                                              'nao_encontradas': [], 'sem_pdf': [], 'sem_xml': []}):
                 self.assertEqual(console('buscar'), 1)
 
     def test_entradas_console_propagam_codigo(self):
@@ -270,6 +271,18 @@ class TestTransferencias(unittest.TestCase):
         for entrada in (find, move):
             with self.subTest(entrada=entrada.__name__), patch.object(entrada, 'console', return_value=1):
                 self.assertEqual(entrada.main(), 1)
+
+    def test_console_informa_pdf_xml_e_notas_ausentes(self):
+        (self.raiz / 'notas.txt').write_text('1234 8474 9999', encoding='utf-8')
+        (self.raiz / 'Nfe0012341.pdf').write_bytes(b'pdf sintetico')
+        (self.raiz / ('0' * 30 + '8474' + '0' * 10 + '.xml')).write_bytes(b'xml sintetico')
+        saida = StringIO()
+        with patch.object(Path, 'cwd', return_value=self.raiz), patch('builtins.input', return_value=''), \
+                patch('sys.stdout', saida), patch.dict(os.environ, {v: str(self.raiz) for v in VARIAVEIS}):
+            self.assertEqual(console('buscar'), 0)
+        for texto in ('Notas não encontradas: 9999', 'PDF encontrado; XML não encontrado: 1234',
+                      'XML encontrado; PDF não encontrado: 8474'):
+            self.assertIn(texto, saida.getvalue())
 
 
 if __name__ == '__main__':

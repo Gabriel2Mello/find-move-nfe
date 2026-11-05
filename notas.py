@@ -213,7 +213,7 @@ class Servidor(ThreadingHTTPServer):
             numeros, pastas, destino = preparar(notas, caminhos, destino)
             if self.cancelar.is_set():
                 resultado = dict(encontrados=0, concluidos=0, ignorados=0, erros=0,
-                                 cancelado=True, nao_encontradas=sorted(numeros))
+                                 cancelado=True, nao_encontradas=sorted(numeros), sem_pdf=[], sem_xml=[])
             else:
                 resultado = executar(acao, numeros, pastas, destino, cancelar=self.cancelar, relatar=self.relatar,
                                      formatar_caminho=lambda arquivo: caminho_resumido(arquivo, caminhos),

@@ -171,7 +171,7 @@ function receber(estado) {
   ocupado = estado.ocupado;
   if (estado.encerrando) {encerrado = true; avisar('Encerrando com segurança. O arquivo em andamento será concluído.');}
   else if (ocupado) avisar(estado.acao === 'limpar' ? 'Limpando a pasta de cópias…' : estado.acao === 'buscar' ? 'Buscando e copiando notas…' : 'Movendo e organizando notas…');
-  else if (estado.resultado) avisar(estado.resultado.erro ? 'A operação encontrou um erro.' : estado.resultado.cancelado ? 'Operação interrompida. Os arquivos concluídos foram preservados.' : estado.resultado.erros ? 'Operação concluída com erros. Confira o registro.' : 'Operação concluída.', !!(estado.resultado.erro || estado.resultado.erros));
+  else if (estado.resultado) avisar(estado.resultado.erro ? 'A operação encontrou um erro.' : estado.resultado.cancelado ? 'Operação interrompida. Os arquivos concluídos foram preservados.' : estado.resultado.erros ? 'Operação concluída com erros. Confira o registro.' : ['nao_encontradas','sem_pdf','sem_xml'].some(campo => estado.resultado[campo]?.length) ? 'Operação concluída com documentos não encontrados. Confira o resumo.' : 'Operação concluída.', !!(estado.resultado.erro || estado.resultado.erros));
   else avisar('Pronta para buscar, mover ou limpar cópias.');
   $('logs').textContent = estado.logs.join('\n');
   const r = estado.resultado;
@@ -190,7 +190,15 @@ function receber(estado) {
   for (const campo of ['encontrados','concluidos','ignorados','erros']) {
     $('total-' + campo).textContent = temResumo ? resumo[campo] : '';
   }
-  $('notas-nao-encontradas').textContent = !ocupado && temResumo && r.nao_encontradas.length ? 'Notas não encontradas: ' + r.nao_encontradas.join(', ') : '';
+  const pendencias = [];
+  if (!ocupado && temResumo) {
+    for (const [campo, rotulo] of [['nao_encontradas','Notas não encontradas'],
+                                 ['sem_xml','PDF encontrado; XML não encontrado'],
+                                 ['sem_pdf','XML encontrado; PDF não encontrado']]) {
+      if (r[campo]?.length) pendencias.push(rotulo + ': ' + r[campo].join(', '));
+    }
+  }
+  $('notas-nao-encontradas').textContent = (pendencias.length && r.cancelado ? 'Consulta interrompida; resultado parcial. ' : '') + pendencias.join(' · ');
   botoes();
   return true;
 }

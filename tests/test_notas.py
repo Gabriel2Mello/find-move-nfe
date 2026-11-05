@@ -14,7 +14,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from integracao_hub import IntegracaoLocal, consultar_instancia, solicitar_encerramento
 from notas import Servidor
-from operacoes import MONTHS, executar, pdf_number, preparar, xml_number
+from operacoes import MONTHS, executar, numero_arquivo, pdf_number, preparar, xml_number
 
 
 class TestOperacoes(unittest.TestCase):
@@ -42,6 +42,74 @@ class TestOperacoes(unittest.TestCase):
         self.assertEqual(pdf_number('NFe12341.pdf'), '1234')
         self.assertEqual(xml_number('NFe' + '0'*30 + '1234' + '0'*10 + '.xml'), '1234')
         self.assertIsNone(pdf_number('nfe1.pdf'))
+
+    def test_xml_manual_aceita_somente_chave_de_44_digitos_sem_prefixo(self):
+        chave = '0' * 30 + '1234' + '0' * 10
+        self.assertEqual(numero_arquivo(chave + '.xml'), '1234')
+        self.assertEqual(numero_arquivo(chave + '.XML'), '1234')
+        self.assertEqual(numero_arquivo('NFe' + chave + '.xml'), '1234')
+        self.assertEqual(numero_arquivo('Nfe0012341.pdf'), '1234')
+        for nome in (chave[1:] + '.xml', '0' + chave + '.xml', 'copia' + chave + '.xml',
+                     chave + '-procNFe.xml', chave + '.pdf', chave + '.xml.bak',
+                     chave.replace('0', '٠') + '.xml'):
+            with self.subTest(nome=nome):
+                self.assertIsNone(numero_arquivo(nome))
+
+    def test_xml_manual_e_copiado_e_movido_preservando_nome_e_conteudo(self):
+        nome = '0' * 30 + '1234' + '0' * 10 + '.XML'
+        origem = self.arquivo(nome, 3)
+        data = datetime.fromtimestamp(origem.stat().st_mtime)
+        self.arquivo('0' + nome, 3)
+        self.arquivo(nome[:-1] + '.bak', 3)
+        for acao in ('buscar', 'mover'):
+            with self.subTest(acao=acao):
+                r = self.executar(acao)
+                self.assertEqual((r['concluidos'], r['encontrados'], r['erros']), (1, 1, 0))
+                self.assertEqual(r['sem_pdf'], ['1234'])
+                self.assertEqual(r['sem_xml'], [])
+                if acao == 'buscar':
+                    self.assertTrue(origem.exists())
+                    alvo = self.destino / nome
+                else:
+                    alvo = origem.parent / str(data.year) / MONTHS[data.month] / nome
+                    self.assertFalse(origem.exists())
+                self.assertEqual(alvo.read_bytes(), b'nota sintetica')
+
+    def test_resultado_distingue_pdf_xml_ambos_e_nenhum_nas_duas_acoes(self):
+        for acao in ('buscar', 'mover'):
+            with self.subTest(acao=acao):
+                base = self.raiz / acao
+                base.mkdir()
+                for numero in ('1234', '5678'):
+                    (base / f'Nfe00{numero}1.pdf').write_bytes(b'pdf sintetico')
+                for numero in ('5678', '8474'):
+                    (base / ('0' * 30 + numero + '0' * 10 + '.xml')).write_bytes(b'xml sintetico')
+                # Outra versão do PDF não substitui o XML ausente.
+                (base / 'Nfe0012342.pdf').write_bytes(b'outro pdf sintetico')
+                r = executar(acao, {'1234', '5678', '8474', '9999'}, [base], self.destino,
+                             relatar=lambda texto: None)
+                self.assertEqual(r['concluidos'], 5)
+                self.assertEqual(r['nao_encontradas'], ['9999'])
+                self.assertEqual(r['sem_xml'], ['1234'])
+                self.assertEqual(r['sem_pdf'], ['8474'])
+
+    def test_mover_consulta_documento_faltante_ja_organizado_sem_recontar_o_outro(self):
+        pdf = self.arquivo('Nfe0012341.pdf')
+        xml = self.arquivo('0' * 30 + '5678' + '0' * 10 + '.xml', 2)
+        arquivados = [self.arquivo(f'{self.ano}/OUTUBRO/' + '0' * 30 + '1234' + '0' * 10 + '.xml', 2),
+                      self.arquivo(f'{self.ano}/OUTUBRO/Nfe0056781.pdf')]
+        self.arquivo(f'{self.ano}/OUTUBRO/Nfe0012342.pdf')
+        for tentativa in range(2):
+            logs = []
+            r = executar('mover', {'1234', '5678'}, self.pastas, self.destino, relatar=logs.append)
+            self.assertEqual((r['encontrados'], r['concluidos'], r['ignorados']),
+                             (4, 2, 2) if tentativa == 0 else (5, 0, 5))
+            for campo in ('nao_encontradas', 'sem_pdf', 'sem_xml'):
+                self.assertEqual(r[campo], [])
+            self.assertEqual(sum(l.startswith('Já organizado:') for l in logs), 2 if tentativa == 0 else 5)
+            self.assertTrue(all(p.exists() for p in arquivados))
+        self.assertFalse(pdf.exists())
+        self.assertFalse(xml.exists())
 
     def test_busca_copia_raiz_e_ano_atual_sem_remover_origem(self):
         raiz = self.arquivo('NFe12341.pdf')
@@ -209,6 +277,8 @@ class TestOperacoes(unittest.TestCase):
             r = self.executar('buscar')
         self.assertEqual(r['erros'], 1)
         self.assertEqual(r['concluidos'], 0)
+        self.assertEqual(r['sem_xml'], ['1234'])
+        self.assertEqual(r['sem_pdf'], [])
         self.assertEqual(list(self.destino.iterdir()), [])
         self.assertEqual(self.executar('mover')['nao_encontradas'], [])
         self.assertEqual(executar('buscar', {'9999'}, self.pastas, self.destino,
@@ -518,6 +588,26 @@ class TestServidor(unittest.TestCase):
             self.assertEqual(self.servidor.resultado['concluidos'], 1)
             self.assertTrue(origem.exists())
             self.assertTrue((pasta/'copias'/origem.name).exists())
+
+    def test_http_publica_documentos_ausentes_e_aceita_xml_manual(self):
+        with tempfile.TemporaryDirectory() as temp:
+            pasta = Path(temp)
+            nome_xml = '0' * 30 + '8474' + '0' * 10 + '.xml'
+            (pasta / nome_xml).write_bytes(b'xml sintetico')
+            (pasta / 'Nfe0012341.pdf').write_bytes(b'pdf sintetico')
+            codigo, _ = self.pedido('POST', '/api/iniciar', dict(
+                acao='buscar', notas='1234 8474 9999', caminhos=[str(pasta)] * 4,
+                destino=str(pasta / 'copias')))
+            self.assertEqual(codigo, 200)
+            self.aguardar(lambda: not self.servidor.ocupado)
+            codigo, corpo = self.pedido('GET', '/api/estado')
+            self.assertEqual(codigo, 200)
+            r = json.loads(corpo)['resultado']
+            self.assertEqual(r['concluidos'], 2)
+            self.assertEqual(r['sem_xml'], ['1234'])
+            self.assertEqual(r['sem_pdf'], ['8474'])
+            self.assertEqual(r['nao_encontradas'], ['9999'])
+            self.assertTrue((pasta / 'copias' / nome_xml).exists())
 
     def test_encerrar_ocupado_aguarda_arquivo_e_bloqueia_nova_operacao(self):
         entrou, liberar = Event(), Event()

@@ -433,6 +433,26 @@ test('cartões refletem todos os totais e preservam notas não encontradas e reg
   }
 });
 
+test('resumo distingue documento ausente, avisa pendências e limpa o resultado anterior', () => {
+  for (const acao of ['buscar','mover']) {
+    const ui = interfaceTeste();
+    const estado = {versao:1, ocupado:false, encerrando:false, acao, logs:[], resultado:{
+      encontrados:2, concluidos:2, ignorados:0, erros:0, nao_encontradas:['9999'],
+      sem_xml:['1234'], sem_pdf:['8474']}};
+    ui.receber(estado);
+    assert.equal(ui.elemento('notas-nao-encontradas').textContent,
+      'Notas não encontradas: 9999 · PDF encontrado; XML não encontrado: 1234 · XML encontrado; PDF não encontrado: 8474');
+    assert.match(ui.elemento('status').textContent, /documentos não encontrados/);
+    ui.receber({...estado, versao:2, resultado:{...estado.resultado, cancelado:true}});
+    assert.match(ui.elemento('notas-nao-encontradas').textContent, /^Consulta interrompida; resultado parcial\./);
+    ui.receber({...estado, versao:3, ocupado:true, resultado:null});
+    assert.equal(ui.elemento('notas-nao-encontradas').textContent, '');
+    ui.receber({...estado, versao:4, resultado:{...estado.resultado, nao_encontradas:[], sem_xml:[], sem_pdf:[]}});
+    assert.equal(ui.elemento('notas-nao-encontradas').textContent, '');
+    assert.equal(ui.elemento('status').textContent, 'Operação concluída.');
+  }
+});
+
 test('busca e movimento mostram cartões em andamento; limpeza conserva apenas o resumo final', () => {
   for (const acao of ['buscar','mover','limpar']) {
     const ui = interfaceTeste();

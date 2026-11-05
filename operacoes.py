@@ -31,6 +31,15 @@ def xml_number(filename):
     return digits[-14:-10] if len(digits) >= 14 else None
 
 
+def numero_arquivo(filename):
+    nome = filename.lower()
+    if nome.startswith('nfe'):
+        return pdf_number(nome) if nome.endswith('.pdf') else xml_number(nome) if nome.endswith('.xml') else None
+    if re.fullmatch(r'[0-9]{44}\.xml', nome):
+        return xml_number(nome)
+    return None
+
+
 def caminhos_ambiente():
     return [environ.get(nome, '') for nome in VARIAVEIS]
 
@@ -242,17 +251,14 @@ def executar(acao, numeros, pastas, destino, *, cancelar=None, relatar=print, fo
                     if cancelar is not None and cancelar.is_set():
                         resumo['cancelado'] = True
                         return
-                    nome = arquivo.lower()
-                    if not nome.startswith('nfe'):
-                        continue
-                    numero = pdf_number(nome) if nome.endswith('.pdf') else xml_number(nome) if nome.endswith('.xml') else None
+                    numero = numero_arquivo(arquivo)
                     if numero not in numeros:
                         continue
                     source = root / arquivo
                     if source in visitados:
                         continue
                     visitados.add(source)
-                    achadas.add(numero)
+                    achadas.add((numero, source.suffix.lower()))
                     resumo['encontrados'] += 1
                     atualizar()
                     yield source, numero, None
@@ -300,7 +306,7 @@ def executar(acao, numeros, pastas, destino, *, cancelar=None, relatar=print, fo
             atualizar()
     # Consulta somente o ano atual, como Buscar, sem movimentar o arquivo
     # novamente nem contar notas de outros anos com a mesma numeração.
-    pendentes = numeros - achadas
+    pendentes = {(numero, tipo) for numero in numeros for tipo in ('.pdf', '.xml')} - achadas
     if acao == 'mover' and pendentes and not resumo['cancelado']:
         for pasta_ano in dict.fromkeys(pastas_organizadas):
             if cancelar is not None and cancelar.is_set():
@@ -324,21 +330,23 @@ def executar(acao, numeros, pastas, destino, *, cancelar=None, relatar=print, fo
                     if cancelar is not None and cancelar.is_set():
                         resumo['cancelado'] = True
                         break
-                    nome = arquivo.lower()
-                    if not nome.startswith('nfe'):
-                        continue
-                    numero = pdf_number(nome) if nome.endswith('.pdf') else xml_number(nome) if nome.endswith('.xml') else None
+                    numero = numero_arquivo(arquivo)
                     source = root / arquivo
-                    if numero not in pendentes or source in visitados:
+                    documento = (numero, source.suffix.lower())
+                    if documento not in pendentes or source in visitados:
                         continue
                     visitados.add(source)
-                    achadas.add(numero)
+                    achadas.add(documento)
                     resumo['encontrados'] += 1
                     resumo['ignorados'] += 1
                     caminho_log = formatar_caminho(source) if formatar_caminho is not None else str(source)
                     relatar(f'Já organizado: {caminho_log}')
                     atualizar()
-    resumo['nao_encontradas'] = sorted(numeros - achadas)
+    pdfs = {numero for numero, tipo in achadas if tipo == '.pdf'}
+    xmls = {numero for numero, tipo in achadas if tipo == '.xml'}
+    resumo['nao_encontradas'] = sorted(numeros - (pdfs | xmls))
+    resumo['sem_pdf'] = sorted(xmls - pdfs)
+    resumo['sem_xml'] = sorted(pdfs - xmls)
     return resumo
 
 
@@ -358,6 +366,13 @@ def _console(acao):
         resumo = executar(acao, numeros, pastas, destino)
         codigo = 1 if resumo['erros'] else 0
         print(f"Concluídos: {resumo['concluidos']} · Erros: {resumo['erros']}")
+        if resumo['cancelado']:
+            print('Consulta interrompida; documentos não localizados até a interrupção:')
+        for campo, rotulo in (('nao_encontradas', 'Notas não encontradas'),
+                              ('sem_xml', 'PDF encontrado; XML não encontrado'),
+                              ('sem_pdf', 'XML encontrado; PDF não encontrado')):
+            if resumo[campo]:
+                print(f"{rotulo}: {', '.join(resumo[campo])}")
         print(f'Terminado em: {perf_counter() - inicio:.2f} segundos')
     except (OSError, ValueError) as erro:
         codigo = 1
