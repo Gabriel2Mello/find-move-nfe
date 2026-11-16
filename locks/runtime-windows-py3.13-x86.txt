@@ -1,0 +1,5 @@
+# Gerado por scripts/dependencias.py do nunes-hub; não editar manualmente.
+# CPython 3.13.13 / Windows 32 bits
+# Raízes: requirements.txt; fechamento transitivo do perfil.
+# Instalar com --no-deps; usar somente neste runtime/arquitetura.
+pypdf==6.21.3

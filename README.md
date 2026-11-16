@@ -1,5 +1,7 @@
 # Busca e Move Notas
 
+Para recriar o ambiente de uma instalação ou build, use o perfil indicado em [Dependências reproduzíveis](DEPENDENCIAS.md).
+
 Uma aplicação Nunes com três ações: **Buscar** copia DANFEs e XMLs; **Mover** organiza os arquivos na própria origem, em pastas de ano e mês; **Limpar** exclui os arquivos da pasta de cópias e esvazia Notas. Abra pelo **Hub Nunes** ou por `Abrir Busca e Move Notas.cmd`.
 
 **Desktop Windows:** `notas.py` agora abre uma janela própria WebView2. Consulte
